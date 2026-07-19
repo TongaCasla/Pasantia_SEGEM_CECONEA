@@ -99,11 +99,15 @@ def separar_nombre_apellido_gliner(
         
         # Intentar procesamiento por lotes (batch extraction)
         try:
-            # En la biblioteca gliner2, extract_entities acepta una lista de textos
-            batch_predictions = model.extract_entities(
+            # En la biblioteca gliner2, se usa batch_extract_entities y el segundo parametro
+            # es posicional (entity_types). Habilitamos include_spans=True para obtener los
+            # indices start de cada entidad y poder ordenarlos correctamente.
+            batch_predictions = model.batch_extract_entities(
                 lote,
-                labels=labels,
-                threshold=threshold
+                labels,
+                batch_size=len(lote),
+                threshold=threshold,
+                include_spans=True
             )
             
             # Verificar que el resultado sea una lista y tenga el mismo tamaño que el lote
@@ -122,35 +126,55 @@ def separar_nombre_apellido_gliner(
                 try:
                     ents = model.extract_entities(
                         nombre,
-                        labels=labels,
-                        threshold=threshold
+                        labels,
+                        threshold=threshold,
+                        include_spans=True
                     )
                     resultados_lote.append(ents)
                 except Exception as e:
                     print(f"❌ Error al extraer entidades para '{nombre}': {e}")
-                    resultados_lote.append([])
+                    resultados_lote.append({})
                     all_success = False
                     
         # Mapear las entidades extraídas a la caché
-        for nombre, entities in zip(lote, resultados_lote):
-            # Ordenar entidades detectadas por su posición inicial (start) para preservar orden
-            try:
-                sorted_entities = sorted(entities, key=lambda x: x.get("start", 0))
-            except Exception:
-                sorted_entities = entities
-                
+        for nombre, res in zip(lote, resultados_lote):
+            # Obtener el diccionario 'entities' si existe (gliner2 formatea los resultados en esta clave)
+            entities_dict = res.get("entities", {}) if isinstance(res, dict) else {}
+            
+            parts = []
+            for label_name, span_list in entities_dict.items():
+                if not isinstance(span_list, list):
+                    continue
+                for span in span_list:
+                    if isinstance(span, dict):
+                        text_val = span.get("text", "").strip()
+                        start_val = span.get("start", 0)
+                        if text_val:
+                            parts.append({
+                                "text": text_val,
+                                "start": start_val,
+                                "label": label_name
+                            })
+                    elif isinstance(span, str) and span.strip():
+                        # Si por alguna razon viene como string plano, se agrega con start=0
+                        parts.append({
+                            "text": span.strip(),
+                            "start": 0,
+                            "label": label_name
+                        })
+            
+            # Ordenar todas las partes según el índice start de aparición en el texto
+            parts = sorted(parts, key=lambda x: x["start"])
+            
             first_names = []
             last_names = []
             
-            for ent in sorted_entities:
-                text_val = ent.get("text", "").strip()
-                label_val = ent.get("label", "")
-                
+            for part in parts:
                 # Mapear nombres a primer/segundo nombre, y apellidos a apellidos
-                if label_val in ("first_name", "middle_name"):
-                    first_names.append(text_val)
-                elif label_val == "last_name":
-                    last_names.append(text_val)
+                if part["label"] in ("first_name", "middle_name"):
+                    first_names.append(part["text"])
+                elif part["label"] == "last_name":
+                    last_names.append(part["text"])
             
             # Formatear el resultado final de separación
             if first_names or last_names:
