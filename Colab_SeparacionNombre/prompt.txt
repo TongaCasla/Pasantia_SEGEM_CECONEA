@@ -1,0 +1,40 @@
+Escribe un script en Python que procese un archivo CSV y genere un JSON jerárquico agrupado por documento, realizando una separación de nombres y apellidos para las etiquetas de tipo "persona" a través de un LLM local en LM Studio.
+
+Requisitos del script:
+
+1. Entrada y Salida:
+   - Entrada: Un archivo CSV con delimitador ";" y las siguientes columnas:
+     numero_archivo;id;nombre_archivo;clasificacion;texto_limpio;id_etiqueta;etiqueta;valor_referencia;id_variante;valor;metodo;span_inicio;span_fin
+   - Salida: Un archivo JSON jerárquico agrupado por documento (clave 'id').
+   - Ambos archivos se deben pasar por argumentos de consola.
+
+2. Agrupación y Estructura del JSON:
+   - Agrupar los registros por documento utilizando los campos: numero_archivo, id, nombre_archivo, clasificacion, texto_limpio.
+   - Cada documento tendrá una lista de 'entidades'.
+   - Cada entidad de la lista tendrá: id_etiqueta, etiqueta, valor_referencia y una lista de 'variantes' (con id_variante, valor, metodo, span_inicio, span_fin).
+   - Conversión de tipos: los campos numero_archivo, id_etiqueta, id_variante, span_inicio y span_fin deben guardarse como números enteros.
+
+3. Separación de Nombres (LLM + LM Studio):
+   - Solo para las entidades con etiqueta igual a "persona", se debe separar el campo "valor" y el campo "valor_referencia" en un objeto con el formato:
+     {"nombre": "<nombre/s>", "apellido": "<apellido/s>"}
+   - Las demás etiquetas (no "persona") deben conservar sus valores originales como texto simple.
+   - Para la separación, utiliza la API de LM Studio (OpenAI-compatible) en: http://localhost:1234/v1/chat/completions
+   - Envía peticiones en lotes (batches) configurables para optimizar la velocidad y el contexto del LLM.
+
+4. Prompt del LLM y Validación:
+   - Instruye al LLM para recibir una lista de nombres únicos, separarlos en "nombre" y "apellido" (si hay un solo término o ambigüedad, dejar "nombre" vacío y ponerlo todo en "apellido"), y responder exclusivamente en un array JSON con el formato:
+     [{"input": "texto original", "nombre": "...", "apellido": "..."}]
+   - Implementa control de errores: si el JSON del LLM no es válido o falla la conexión, realiza hasta 3 reintentos.
+   - Si tras los reintentos sigue fallando, aplica un fallback por defecto: {"nombre": "", "apellido": "<valor_original>"}.
+
+5. Cache de Resultados:
+   - Implementa una cache local (ej. _cache_nombres.json) para guardar los mapeos de nombres ya procesados por el LLM.
+   - Al iniciar, lee la cache. Solo procesa mediante el LLM los nombres de persona que no estén registrados en ella. Al finalizar, actualiza el archivo de cache.
+
+6. Argumentos de Consola esperados:
+   - `-i` / `--input`: Ruta al CSV de entrada.
+   - `-o` / `--output`: Ruta al JSON de salida.
+   - `--api-url`: Endpoint de LM Studio (default: http://localhost:1234/v1/chat/completions).
+   - `--model`: Modelo a usar en LM Studio (default: cadena vacía para usar el modelo cargado).
+   - `--batch-size`: Tamaño del lote de procesamiento (default: 10).
+   - `--cache`: Ruta al archivo JSON de cache (default: _cache_nombres.json).
