@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contador de Caracteres</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+            color: #e0e0e0;
+            padding: 1.5rem;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 850px;
+        }
+
+        /* ── Header ── */
+        .header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .header h1 {
+            font-size: 2.2rem;
+            font-weight: 700;
+            background: linear-gradient(90deg, #a78bfa, #818cf8, #6366f1);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .header p {
+            margin-top: .4rem;
+            font-size: .95rem;
+            color: #9ca3af;
+        }
+
+        /* ── Card ── */
+        .card {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(18px);
+            -webkit-backdrop-filter: blur(18px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 1.25rem;
+            padding: 2.25rem;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, .35);
+            transition: box-shadow .3s ease;
+        }
+
+        .card:hover {
+            box-shadow: 0 12px 48px rgba(99, 102, 241, .15);
+        }
+
+        /* ── Textarea ── */
+        .textarea-wrapper {
+            position: relative;
+        }
+
+        textarea {
+            width: 100%;
+            min-height: 280px;
+            padding: 1.25rem;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: .75rem;
+            color: #f1f1f1;
+            font-family: 'Inter', sans-serif;
+            font-size: 1rem;
+            line-height: 1.6;
+            resize: vertical;
+            outline: none;
+            transition: border-color .25s ease, box-shadow .25s ease;
+        }
+
+        textarea::placeholder {
+            color: #6b7280;
+        }
+
+        textarea:focus {
+            border-color: #818cf8;
+            box-shadow: 0 0 0 3px rgba(129, 140, 248, .2);
+        }
+
+        /* ── Stats Grid ── */
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: .85rem;
+            margin-top: 1.5rem;
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: .75rem;
+            padding: 1.1rem 1rem;
+            text-align: center;
+            transition: transform .2s ease, background .2s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-2px);
+            background: rgba(255, 255, 255, 0.07);
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #a78bfa, #818cf8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            transition: transform .15s ease;
+        }
+
+        .stat-value.pop {
+            animation: pop .25s ease;
+        }
+
+        @keyframes pop {
+            0%   { transform: scale(1); }
+            50%  { transform: scale(1.15); }
+            100% { transform: scale(1); }
+        }
+
+        .stat-label {
+            margin-top: .3rem;
+            font-size: .78rem;
+            font-weight: 500;
+            color: #9ca3af;
+            text-transform: uppercase;
+            letter-spacing: .04em;
+        }
+
+        /* ── Responsive ── */
+        @media (max-width: 480px) {
+            .stats {
+                grid-template-columns: 1fr 1fr;
+                gap: .6rem;
+            }
+
+            .header h1 {
+                font-size: 1.5rem;
+            }
+
+            .card {
+                padding: 1.25rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>✦ Contador de Caracteres</h1>
+            <p>Escribí o pegá tu texto y obtené las estadísticas al instante</p>
+        </div>
+
+        <div class="card">
+            <div class="textarea-wrapper">
+                <textarea
+                    id="text-input"
+                    placeholder="Escribí algo acá..."
+                    autofocus
+                ></textarea>
+            </div>
+
+            <div class="stats">
+                <div class="stat-card">
+                    <div class="stat-value" id="total">0</div>
+                    <div class="stat-label">Caracteres</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="no-spaces">0</div>
+                    <div class="stat-label">Sin espacios</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="words">0</div>
+                    <div class="stat-label">Palabras</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="lines">0</div>
+                    <div class="stat-label">Líneas</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const textarea = document.getElementById('text-input');
+        let debounceTimer;
+
+        function animateValue(el, newVal) {
+            if (el.textContent !== String(newVal)) {
+                el.textContent = newVal;
+                el.classList.remove('pop');
+                void el.offsetWidth;          // reflow to restart animation
+                el.classList.add('pop');
+            }
+        }
+
+        async function updateStats() {
+            const text = textarea.value;
+
+            try {
+                const res = await fetch('/api/count', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text }),
+                });
+
+                if (!res.ok) throw new Error('Network error');
+
+                const data = await res.json();
+                animateValue(document.getElementById('total'),     data.total);
+                animateValue(document.getElementById('no-spaces'), data.no_spaces);
+                animateValue(document.getElementById('words'),     data.words);
+                animateValue(document.getElementById('lines'),     data.lines);
+            } catch (err) {
+                console.error('Error contando caracteres:', err);
+            }
+        }
+
+        textarea.addEventListener('input', () => {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(updateStats, 150);   // debounce 150ms
+        });
+    </script>
+</body>
+</html>
