@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Contador de Caracteres</title>
+    <title>Contador y Visualizador de Spans</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -27,13 +27,13 @@
 
         .container {
             width: 100%;
-            max-width: 850px;
+            max-width: 920px;
         }
 
         /* ── Header ── */
         .header {
             text-align: center;
-            margin-bottom: 2rem;
+            margin-bottom: 1.5rem;
         }
 
         .header h1 {
@@ -51,6 +51,46 @@
             color: #9ca3af;
         }
 
+        /* ── Tabs Navigation ── */
+        .tabs {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+            background: rgba(0, 0, 0, 0.25);
+            padding: 0.35rem;
+            border-radius: 0.85rem;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 0.7rem 1.2rem;
+            border: none;
+            background: transparent;
+            color: #9ca3af;
+            font-weight: 600;
+            font-size: 0.95rem;
+            border-radius: 0.6rem;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+        .tab-btn:hover {
+            color: #e0e0e0;
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .tab-btn.active {
+            color: #ffffff;
+            background: linear-gradient(135deg, rgba(129, 140, 248, 0.25), rgba(99, 102, 241, 0.35));
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.25);
+            border: 1px solid rgba(129, 140, 248, 0.4);
+        }
+
         /* ── Card ── */
         .card {
             background: rgba(255, 255, 255, 0.05);
@@ -58,7 +98,7 @@
             -webkit-backdrop-filter: blur(18px);
             border: 1px solid rgba(255, 255, 255, 0.08);
             border-radius: 1.25rem;
-            padding: 2.25rem;
+            padding: 2rem;
             box-shadow: 0 8px 32px rgba(0, 0, 0, .35);
             transition: box-shadow .3s ease;
         }
@@ -67,40 +107,126 @@
             box-shadow: 0 12px 48px rgba(99, 102, 241, .15);
         }
 
-        /* ── Textarea ── */
-        .textarea-wrapper {
-            position: relative;
+        .tab-content {
+            display: none;
         }
 
-        textarea {
+        .tab-content.active {
+            display: block;
+        }
+
+        /* ── Textarea Container and Backdrop ── */
+        .textarea-container {
+            position: relative;
             width: 100%;
-            min-height: 280px;
-            padding: 1.25rem;
             background: rgba(255, 255, 255, 0.04);
             border: 1px solid rgba(255, 255, 255, 0.1);
             border-radius: .75rem;
+            transition: border-color .25s ease, box-shadow .25s ease;
+            overflow: hidden;
+        }
+
+        .textarea-container.focus {
+            border-color: #818cf8;
+            box-shadow: 0 0 0 3px rgba(129, 140, 248, .2);
+        }
+
+        .backdrop {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            pointer-events: none;
+            z-index: 1;
+            overflow-y: scroll;
+            padding: 1.25rem;
+            padding-right: calc(1.25rem + 8px);
+            box-sizing: border-box;
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        .backdrop::-webkit-scrollbar {
+            display: none !important;
+            width: 0 !important;
+            height: 0 !important;
+        }
+
+        .highlights {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            color: transparent;
+            font-family: 'Inter', sans-serif;
+            font-size: 1rem;
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+            border: none;
+            background: transparent;
+            text-rendering: optimizeLegibility;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        textarea {
+            position: relative;
+            z-index: 2;
+            width: 100%;
+            min-height: 250px;
+            padding: 1.25rem;
+            background: transparent;
+            border: none;
             color: #f1f1f1;
             font-family: 'Inter', sans-serif;
             font-size: 1rem;
             line-height: 1.6;
             resize: vertical;
             outline: none;
-            transition: border-color .25s ease, box-shadow .25s ease;
+            display: block;
+            box-sizing: border-box;
+            margin: 0;
+            overflow-y: scroll;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255, 255, 255, 0.1) rgba(255, 255, 255, 0.01);
+            text-rendering: optimizeLegibility;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        textarea::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        textarea::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.01);
+        }
+
+        textarea::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+        }
+
+        textarea::-webkit-scrollbar-thumb:hover {
+            background: rgba(129, 140, 248, 0.4);
         }
 
         textarea::placeholder {
             color: #6b7280;
         }
 
-        textarea:focus {
-            border-color: #818cf8;
-            box-shadow: 0 0 0 3px rgba(129, 140, 248, .2);
+        /* ── Highlights styling ── */
+        mark {
+            background-color: rgba(234, 179, 8, 0.35);
+            border-bottom: 2px solid rgba(234, 179, 8, 0.95);
+            color: transparent;
+            border-radius: 2px;
+            margin: 0;
+            padding: 0;
         }
 
         /* ── Stats Grid ── */
         .stats {
             display: grid;
-            grid-template-columns: repeat(2, 1fr);
+            grid-template-columns: repeat(4, 1fr);
             gap: .85rem;
             margin-top: 1.5rem;
         }
@@ -148,10 +274,129 @@
             letter-spacing: .04em;
         }
 
+        /* ── CSV Upload Area ── */
+        .csv-box {
+            margin-top: 1.25rem;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px dashed rgba(255, 255, 255, 0.15);
+            border-radius: 0.75rem;
+            padding: 1.25rem;
+            transition: border-color 0.2s ease, background 0.2s ease;
+        }
+
+        .csv-box.dragover {
+            border-color: #818cf8;
+            background: rgba(129, 140, 248, 0.08);
+        }
+
+        .btn-upload {
+            background: linear-gradient(135deg, #6366f1, #818cf8);
+            color: #ffffff;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: opacity 0.2s ease;
+        }
+
+        .btn-upload:hover {
+            opacity: 0.9;
+        }
+
+        /* ── Legend Badges ── */
+        .legend-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-top: 0.8rem;
+            margin-bottom: 1rem;
+        }
+
+        .legend-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.3rem 0.65rem;
+            border-radius: 0.5rem;
+            font-size: 0.8rem;
+            font-weight: 600;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .legend-color-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+
+        /* ── Spans Table ── */
+        .spans-table-wrapper {
+            margin-top: 0.75rem;
+            overflow-x: auto;
+            border-radius: 0.75rem;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            max-height: 280px;
+            overflow-y: auto;
+        }
+
+        .spans-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+            text-align: left;
+        }
+
+        .spans-table th {
+            background: rgba(0, 0, 0, 0.35);
+            color: #a78bfa;
+            font-weight: 600;
+            padding: 0.7rem 0.9rem;
+            position: sticky;
+            top: 0;
+            z-index: 5;
+        }
+
+        .spans-table td {
+            padding: 0.55rem 0.9rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+            color: #d1d5db;
+        }
+
+        .spans-table tr:hover {
+            background: rgba(255, 255, 255, 0.03);
+        }
+
+        .badge-match {
+            font-size: 0.72rem;
+            padding: 0.15rem 0.45rem;
+            border-radius: 0.3rem;
+            font-weight: 600;
+        }
+
+        .badge-match.ok {
+            background: rgba(16, 185, 129, 0.2);
+            color: #34d399;
+            border: 1px solid rgba(16, 185, 129, 0.4);
+        }
+
+        .badge-match.diff {
+            background: rgba(239, 68, 68, 0.2);
+            color: #f87171;
+            border: 1px solid rgba(239, 68, 68, 0.4);
+        }
+
+        .badge-match.warn {
+            background: rgba(245, 158, 11, 0.2);
+            color: #fbbf24;
+            border: 1px solid rgba(245, 158, 11, 0.4);
+        }
+
         /* ── Responsive ── */
-        @media (max-width: 480px) {
+        @media (max-width: 600px) {
             .stats {
-                grid-template-columns: 1fr 1fr;
+                grid-template-columns: repeat(2, 1fr);
                 gap: .6rem;
             }
 
@@ -168,78 +413,339 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>✦ Contador de Caracteres</h1>
-            <p>Escribí o pegá tu texto y obtené las estadísticas al instante</p>
+            <h1>✦ Contador y Visualizador de Spans</h1>
+            <p>Conteo de caracteres, búsqueda con offsets precisos y visualización de spans CSV</p>
+        </div>
+
+        <div class="tabs">
+            <button class="tab-btn active" id="tab-btn-1" onclick="switchTab(1)">
+                📊 Contador & Búsqueda
+            </button>
+            <button class="tab-btn" id="tab-btn-2" onclick="switchTab(2)">
+                🏷️ Visualizador de Spans (CSV)
+            </button>
         </div>
 
         <div class="card">
-            <div class="textarea-wrapper">
-                <textarea
-                    id="text-input"
-                    placeholder="Escribí o pegá el texto crudo del archivo..."
-                    autofocus
-                ></textarea>
+            <!-- TAB 1: CONTADOR -->
+            <div class="tab-content active" id="tab-1">
+                <div class="textarea-container" id="textarea-container-1">
+                    <div class="backdrop" id="backdrop-1">
+                        <div class="highlights" id="highlights-1"></div>
+                    </div>
+                    <textarea
+                        id="text-input-1"
+                        placeholder="Escribí o pegá el texto crudo del archivo..."
+                        autofocus
+                    ></textarea>
+                </div>
+
+                <div style="margin-top: 1.25rem; display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.03); padding: 0.85rem 1.1rem; border-radius: 0.75rem; border: 1px solid rgba(255,255,255,0.06);">
+                    <label style="display: flex; align-items: center; gap: 0.6rem; cursor: pointer; font-size: 0.9rem; color: #d1d5db;">
+                        <input type="checkbox" class="unescape-csv" checked style="accent-color: #818cf8; width: 1.1rem; height: 1.1rem; cursor: pointer;">
+                        <span>Modo GLiNER (Desescapar comillas CSV <code>"" → "</code>)</span>
+                    </label>
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <span style="font-size: 0.85rem; color: #9ca3af;">Buscar Span:</span>
+                        <input type="text" id="search-query" placeholder="Ej: LEVY" style="background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); color: #fff; padding: 0.4rem 0.75rem; border-radius: 0.5rem; font-size: 0.88rem; outline: none;">
+                    </div>
+                </div>
+
+                <div id="span-result-box" style="display: none; margin-top: 1rem; padding: 1rem; background: rgba(129, 140, 248, 0.08); border: 1px solid rgba(129, 140, 248, 0.25); border-radius: 0.75rem; color: #c7d2fe;">
+                    <div id="span-header" style="font-weight: 600; font-size: 0.95rem; margin-bottom: 0.6rem; color: #a78bfa;"></div>
+                    <div id="span-list" style="display: flex; flex-direction: column; gap: 0.4rem; max-height: 200px; overflow-y: auto; padding-right: 0.3rem;"></div>
+                </div>
+
+                <div class="stats">
+                    <div class="stat-card">
+                        <div class="stat-value" id="total">0</div>
+                        <div class="stat-label">Caracteres</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="no-spaces">0</div>
+                        <div class="stat-label">Sin espacios</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="words">0</div>
+                        <div class="stat-label">Palabras</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="lines">0</div>
+                        <div class="stat-label">Líneas</div>
+                    </div>
+                </div>
             </div>
 
-            <div style="margin-top: 1.25rem; display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.03); padding: 0.85rem 1.1rem; border-radius: 0.75rem; border: 1px solid rgba(255,255,255,0.06);">
-                <label style="display: flex; align-items: center; gap: 0.6rem; cursor: pointer; font-size: 0.9rem; color: #d1d5db;">
-                    <input type="checkbox" id="unescape-csv" style="accent-color: #818cf8; width: 1.1rem; height: 1.1rem; cursor: pointer;">
-                    <span>Modo GLiNER (Desescapar comillas CSV <code>"" → "</code>)</span>
-                </label>
-                <div style="display: flex; align-items: center; gap: 0.5rem;">
-                    <span style="font-size: 0.85rem; color: #9ca3af;">Buscar Span:</span>
-                    <input type="text" id="search-query" placeholder="Ej: LEVY" style="background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); color: #fff; padding: 0.4rem 0.75rem; border-radius: 0.5rem; font-size: 0.88rem; outline: none;">
+            <!-- TAB 2: VISUALIZADOR CSV -->
+            <div class="tab-content" id="tab-2">
+                <div style="margin-bottom: 1rem;">
+                    <label style="font-size: 0.9rem; font-weight: 600; color: #a78bfa; margin-bottom: 0.4rem; display: block;">1. CSV con Spans (id, texto_limpio, etiqueta, valor, span_inicio, span_fin):</label>
+                    <div class="csv-box" id="csv-drop-zone">
+                        <div style="display: flex; flex-wrap: wrap; gap: 0.8rem; align-items: center; justify-content: space-between; margin-bottom: 0.75rem;">
+                            <span style="font-size: 0.85rem; color: #9ca3af;">Arrastrá tu archivo CSV aquí o hacé clic en cargar:</span>
+                            <input type="file" id="csv-file-input" accept=".csv,.txt" style="display: none;">
+                            <button class="btn-upload" onclick="document.getElementById('csv-file-input').click()">📁 Cargar CSV</button>
+                        </div>
+                        <textarea
+                            id="csv-text-input"
+                            placeholder="id,texto_limpio,etiqueta,valor,span_inicio,span_fin&#10;3456,&quot;Lévy estuvo en Google...&quot;,PER,Lévy,0,4&#10;3456,&quot;Lévy estuvo en Google...&quot;,ORG,Google,15,21"
+                            style="min-height: 110px; background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.08); border-radius: 0.5rem; font-family: monospace; font-size: 0.85rem;"
+                        ></textarea>
+                    </div>
                 </div>
-            </div>
 
-            <div id="span-result-box" style="display: none; margin-top: 1rem; padding: 1rem; background: rgba(129, 140, 248, 0.08); border: 1px solid rgba(129, 140, 248, 0.25); border-radius: 0.75rem; color: #c7d2fe;">
-                <div id="span-header" style="font-weight: 600; font-size: 0.95rem; margin-bottom: 0.6rem; color: #a78bfa;"></div>
-                <div id="span-list" style="display: flex; flex-direction: column; gap: 0.4rem; max-height: 200px; overflow-y: auto; padding-right: 0.3rem;"></div>
-            </div>
+                <!-- Banner de Errores CSV -->
+                <div id="csv-error-box" style="display: none; margin-bottom: 1rem; padding: 0.85rem 1.1rem; background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.35); border-radius: 0.75rem; color: #fca5a5; font-size: 0.88rem;">
+                </div>
 
-            <div class="stats">
-                <div class="stat-card">
-                    <div class="stat-value" id="total">0</div>
-                    <div class="stat-label">Caracteres</div>
+                <!-- Selector de Documento ID y Buscador -->
+                <div id="doc-selector-wrapper" style="display: none; margin-bottom: 1rem; background: rgba(129, 140, 248, 0.08); padding: 0.85rem 1.1rem; border-radius: 0.75rem; border: 1px solid rgba(129, 140, 248, 0.25);">
+                    <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem;">
+                        <div style="display: flex; align-items: center; gap: 0.75rem;">
+                            <span style="font-size: 0.9rem; font-weight: 600; color: #a78bfa;">Documento (ID):</span>
+                            <select id="doc-select" style="background: rgba(0, 0, 0, 0.4); border: 1px solid rgba(129, 140, 248, 0.4); color: #fff; padding: 0.45rem 0.85rem; border-radius: 0.5rem; font-size: 0.9rem; font-weight: 600; outline: none; cursor: pointer; min-width: 180px;">
+                            </select>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <span style="font-size: 0.85rem; color: #9ca3af;">Buscar Span:</span>
+                            <input type="text" id="search-query-2" placeholder="Ej: LEVY" style="background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); color: #fff; padding: 0.4rem 0.75rem; border-radius: 0.5rem; font-size: 0.88rem; outline: none;">
+                        </div>
+                        <label style="display: flex; align-items: center; gap: 0.6rem; cursor: pointer; font-size: 0.88rem; color: #d1d5db;">
+                            <input type="checkbox" class="unescape-csv" checked style="accent-color: #818cf8; width: 1.1rem; height: 1.1rem; cursor: pointer;">
+                            <span>Modo GLiNER (Desescapar comillas CSV <code>"" → "</code>)</span>
+                        </label>
+                    </div>
                 </div>
-                <div class="stat-card">
-                    <div class="stat-value" id="no-spaces">0</div>
-                    <div class="stat-label">Sin espacios</div>
+
+                <div id="span-result-box-2" style="display: none; margin-bottom: 1rem; padding: 1rem; background: rgba(6, 182, 212, 0.08); border: 1px solid rgba(6, 182, 212, 0.3); border-radius: 0.75rem; color: #a5f3fc;">
+                    <div id="span-header-2" style="font-weight: 600; font-size: 0.95rem; margin-bottom: 0.6rem; color: #22d3ee;"></div>
+                    <div id="span-list-2" style="display: flex; flex-direction: column; gap: 0.4rem; max-height: 180px; overflow-y: auto; padding-right: 0.3rem;"></div>
                 </div>
-                <div class="stat-card">
-                    <div class="stat-value" id="words">0</div>
-                    <div class="stat-label">Palabras</div>
+
+                <div style="margin-bottom: 1rem;">
+                    <label style="font-size: 0.9rem; font-weight: 600; color: #a78bfa; margin-bottom: 0.4rem; display: block;">2. Texto Limpio del Documento Seleccionado:</label>
+                    <div class="textarea-container" id="textarea-container-2">
+                        <div class="backdrop" id="backdrop-2">
+                            <div class="highlights" id="highlights-2"></div>
+                        </div>
+                        <textarea
+                            id="text-input-2"
+                            placeholder="El texto limpio del documento se cargará automáticamente al elegir un ID en el desplegable..."
+                        ></textarea>
+                    </div>
                 </div>
-                <div class="stat-card">
-                    <div class="stat-value" id="lines">0</div>
-                    <div class="stat-label">Líneas</div>
+
+                <!-- Leyenda de Etiquetas -->
+                <div id="legend-box" style="display: none;">
+                    <div style="font-size: 0.85rem; font-weight: 600; color: #9ca3af; margin-bottom: 0.3rem;">Leyenda de Etiquetas:</div>
+                    <div class="legend-container" id="legend-container"></div>
+                </div>
+
+                <!-- Tabla de Spans Parseados / Encontrados -->
+                <div id="csv-spans-wrapper" style="display: none;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 1.25rem;">
+                        <span style="font-size: 0.9rem; font-weight: 600; color: #34d399;" id="csv-summary-title">✓ Spans Resaltados</span>
+                    </div>
+                    <div class="spans-table-wrapper">
+                        <table class="spans-table">
+                            <thead>
+                                <tr>
+                                    <th>Fila #</th>
+                                    <th>Etiqueta</th>
+                                    <th>Valor CSV</th>
+                                    <th>Inicio</th>
+                                    <th>Fin</th>
+                                    <th>Texto Extraído</th>
+                                    <th>Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody id="csv-spans-tbody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Tabla de Spans No Encontrados / Sin Coordenadas -->
+                <div id="csv-unfound-wrapper" style="display: none; margin-top: 1.5rem;">
+                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                        <span style="font-size: 0.9rem; font-weight: 600; color: #f87171;" id="csv-unfound-title">⚠️ Spans No Encontrados o Sin Coordenadas (Manuales)</span>
+                    </div>
+                    <div class="spans-table-wrapper" style="border-color: rgba(239, 68, 68, 0.3);">
+                        <table class="spans-table">
+                            <thead>
+                                <tr>
+                                    <th>Fila #</th>
+                                    <th>Etiqueta</th>
+                                    <th>Valor CSV</th>
+                                    <th>Inicio</th>
+                                    <th>Fin</th>
+                                    <th>Motivo / Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody id="csv-unfound-tbody"></tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
     <script>
-        const textarea = document.getElementById('text-input');
-        const unescapeCsvCheck = document.getElementById('unescape-csv');
+        // Paleta de colores para etiquetas distintas
+        const LABEL_PALETTE = [
+            { bg: 'rgba(234, 179, 8, 0.35)', border: 'rgba(234, 179, 8, 0.95)', text: '#fef08a' },   // Amarillo
+            { bg: 'rgba(59, 130, 246, 0.35)', border: 'rgba(59, 130, 246, 0.95)', text: '#93c5fd' },   // Azul
+            { bg: 'rgba(16, 185, 129, 0.35)', border: 'rgba(16, 185, 129, 0.95)', text: '#6ee7b7' },   // Verde
+            { bg: 'rgba(239, 68, 68, 0.35)', border: 'rgba(239, 68, 68, 0.95)', text: '#fca5a5' },    // Rojo
+            { bg: 'rgba(168, 85, 247, 0.35)', border: 'rgba(168, 85, 247, 0.95)', text: '#d8b4fe' },  // Púrpura
+            { bg: 'rgba(236, 72, 153, 0.35)', border: 'rgba(236, 72, 153, 0.95)', text: '#fbcfe8' },  // Rosa
+            { bg: 'rgba(20, 184, 166, 0.35)', border: 'rgba(20, 184, 166, 0.95)', text: '#99f6e4' },  // Turquesa
+            { bg: 'rgba(249, 115, 22, 0.35)', border: 'rgba(249, 115, 22, 0.95)', text: '#ffedd5' }   // Naranja
+        ];
+
+        let labelColorMap = {};
+
+        function getColorForLabel(label) {
+            if (!labelColorMap[label]) {
+                const index = Object.keys(labelColorMap).length % LABEL_PALETTE.length;
+                labelColorMap[label] = LABEL_PALETTE[index];
+            }
+            return labelColorMap[label];
+        }
+
+        // Elementos UI Tab 1
+        const textarea1 = document.getElementById('text-input-1');
+        const backdrop1 = document.getElementById('backdrop-1');
+        const highlights1 = document.getElementById('highlights-1');
+        const textareaContainer1 = document.getElementById('textarea-container-1');
         const searchQueryInput = document.getElementById('search-query');
         const spanBox = document.getElementById('span-result-box');
         const spanHeader = document.getElementById('span-header');
         const spanList = document.getElementById('span-list');
 
+        // Elementos UI Tab 2
+        const textarea2 = document.getElementById('text-input-2');
+        const backdrop2 = document.getElementById('backdrop-2');
+        const highlights2 = document.getElementById('highlights-2');
+        const textareaContainer2 = document.getElementById('textarea-container-2');
+        const csvTextInput = document.getElementById('csv-text-input');
+        const csvFileInput = document.getElementById('csv-file-input');
+        const csvDropZone = document.getElementById('csv-drop-zone');
+        const docSelectorWrapper = document.getElementById('doc-selector-wrapper');
+        const docSelect = document.getElementById('doc-select');
+        const csvErrorBox = document.getElementById('csv-error-box');
+        const legendBox = document.getElementById('legend-box');
+        const legendContainer = document.getElementById('legend-container');
+        
+        const searchQuery2Input = document.getElementById('search-query-2');
+        const spanBox2 = document.getElementById('span-result-box-2');
+        const spanHeader2 = document.getElementById('span-header-2');
+        const spanList2 = document.getElementById('span-list-2');
+
+        const csvSpansWrapper = document.getElementById('csv-spans-wrapper');
+        const csvSpansTbody = document.getElementById('csv-spans-tbody');
+        const csvSummaryTitle = document.getElementById('csv-summary-title');
+
+        const csvUnfoundWrapper = document.getElementById('csv-unfound-wrapper');
+        const csvUnfoundTbody = document.getElementById('csv-unfound-tbody');
+        const csvUnfoundTitle = document.getElementById('csv-unfound-title');
+
+        const unescapeCsvChecks = document.querySelectorAll('.unescape-csv');
+
         let debounceTimer;
+        let isUserEditingText2 = false;
+
+        // Tab Navigation
+        function switchTab(tabNum) {
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            
+            document.getElementById(`tab-btn-${tabNum}`).classList.add('active');
+            document.getElementById(`tab-${tabNum}`).classList.add('active');
+
+            if (tabNum === 2) {
+                updateCsvSpans();
+            } else {
+                updateStats();
+            }
+        }
+
+        // Sincronización de scrolls
+        textarea1.addEventListener('scroll', () => {
+            backdrop1.scrollTop = textarea1.scrollTop;
+            backdrop1.scrollLeft = textarea1.scrollLeft;
+        });
+
+        textarea2.addEventListener('scroll', () => {
+            backdrop2.scrollTop = textarea2.scrollTop;
+            backdrop2.scrollLeft = textarea2.scrollLeft;
+        });
+
+        // Contenedor Focus
+        textarea1.addEventListener('focus', () => textareaContainer1.classList.add('focus'));
+        textarea1.addEventListener('blur', () => textareaContainer1.classList.remove('focus'));
+        textarea2.addEventListener('focus', () => textareaContainer2.classList.add('focus'));
+        textarea2.addEventListener('blur', () => textareaContainer2.classList.remove('focus'));
+
+        // Sincronización entre checkboxes unescape
+        unescapeCsvChecks.forEach(chk => {
+            chk.addEventListener('change', (e) => {
+                const isChecked = e.target.checked;
+                unescapeCsvChecks.forEach(c => c.checked = isChecked);
+                updateStats();
+                updateCsvSpans();
+            });
+        });
 
         function animateValue(el, newVal) {
             if (el.textContent !== String(newVal)) {
                 el.textContent = newVal;
                 el.classList.remove('pop');
-                void el.offsetWidth;          // reflow to restart animation
+                void el.offsetWidth;
                 el.classList.add('pop');
             }
         }
 
+        function escapeHTML(str) {
+            if (str === null || str === undefined) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        // Aplicar highlights estándar (Tab 1)
+        function applyHighlights(text, searchResults) {
+            if (!searchResults || searchResults.length === 0) {
+                return escapeHTML(text) + '\n';
+            }
+
+            let resultHTML = '';
+            let lastIndex = 0;
+
+            searchResults.forEach((match) => {
+                const start = match.start;
+                const end = match.end;
+
+                resultHTML += escapeHTML(text.substring(lastIndex, start));
+                resultHTML += `<mark>${escapeHTML(text.substring(start, end))}</mark>`;
+                lastIndex = end;
+            });
+
+            resultHTML += escapeHTML(text.substring(lastIndex));
+
+            if (resultHTML.endsWith('\n')) {
+                resultHTML += ' ';
+            }
+
+            return resultHTML;
+        }
+
+        // Tab 1: Update stats & single query highlights
         async function updateStats() {
-            const text = textarea.value;
-            const unescape_csv = unescapeCsvCheck.checked;
+            const text = textarea1.value;
+            const unescape_csv = unescapeCsvChecks[0].checked;
             const search_query = searchQueryInput.value.trim();
 
             try {
@@ -259,37 +765,369 @@
 
                 if (search_query) {
                     spanBox.style.display = 'block';
-                    const results = data.search_results || [];
-                    if (results.length > 0) {
-                        spanHeader.innerHTML = `📍 Se encontraron <strong>${results.length}</strong> apariciones de "<em>${search_query}</em>" (insensible a mayúsculas/minúsculas):`;
-                        spanList.innerHTML = results.map((item, idx) => `
-                            <div style="display: flex; align-items: center; justify-content: space-between; background: rgba(255, 255, 255, 0.05); padding: 0.4rem 0.75rem; border-radius: 0.4rem; font-size: 0.88rem; border-left: 3px solid #818cf8;">
-                                <span>#${idx + 1} Texto: <strong>"${item.matched_text}"</strong></span>
-                                <span>Start: <strong>${item.start}</strong> | End: <strong>${item.end}</strong></span>
+                    const matches = data.search_results || [];
+                    highlights1.innerHTML = applyHighlights(text, matches);
+                    
+                    if (matches.length > 0) {
+                        spanHeader.innerHTML = `📍 Se encontraron <strong>${matches.length}</strong> apariciones de "<em>${escapeHTML(search_query)}</em>" (insensible a acentos):`;
+                        spanList.innerHTML = matches.map((item, idx) => `
+                            <div style="display: flex; align-items: center; justify-content: space-between; background: rgba(255, 255, 255, 0.05); padding: 0.4rem 0.75rem; border-radius: 0.4rem; font-size: 0.88rem; border-left: 3px solid #818cf8; gap: 1rem;">
+                                <span>#${idx + 1} Texto: <strong>"${escapeHTML(item.matched_text)}"</strong></span>
+                                <span style="font-size: 0.75rem; color: #9ca3af;">Start: <strong>${item.start}</strong> | End: <strong>${item.end}</strong></span>
                             </div>
                         `).join('');
                     } else {
-                        spanHeader.innerHTML = `⚠️ No se encontró "<em>${search_query}</em>" en el texto.`;
+                        spanHeader.innerHTML = `⚠️ No se encontró "<em>${escapeHTML(search_query)}</em>" en el texto.`;
                         spanList.innerHTML = '';
                     }
                 } else {
                     spanBox.style.display = 'none';
+                    highlights1.innerHTML = escapeHTML(text) + '\n';
                 }
             } catch (err) {
                 console.error('Error contando caracteres:', err);
             }
         }
 
-        textarea.addEventListener('input', () => {
+        // Tab 2: Render CSV spans & search query multi-color highlights
+        function renderMultiColorHighlights(text, spans, searchResults) {
+            if (!text) return '\n';
+            if ((!spans || spans.length === 0) && (!searchResults || searchResults.length === 0)) {
+                return escapeHTML(text) + '\n';
+            }
+
+            const len = text.length;
+            const charSpan = new Array(len).fill(null);
+            const charSearch = new Array(len).fill(false);
+
+            if (spans && spans.length > 0) {
+                spans.forEach(span => {
+                    const start = Math.max(0, Math.min(span.span_inicio, len));
+                    const end = Math.max(start, Math.min(span.span_fin, len));
+                    for (let i = start; i < end; i++) {
+                        if (!charSpan[i]) charSpan[i] = span;
+                    }
+                });
+            }
+
+            if (searchResults && searchResults.length > 0) {
+                searchResults.forEach(match => {
+                    const start = Math.max(0, Math.min(match.start, len));
+                    const end = Math.max(start, Math.min(match.end, len));
+                    for (let i = start; i < end; i++) {
+                        charSearch[i] = true;
+                    }
+                });
+            }
+
+            let resultHTML = '';
+            let idx = 0;
+
+            while (idx < len) {
+                const currentSpan = charSpan[idx];
+                const currentSearch = charSearch[idx];
+
+                let nextIdx = idx + 1;
+                while (
+                    nextIdx < len &&
+                    charSpan[nextIdx] === currentSpan &&
+                    charSearch[nextIdx] === currentSearch
+                ) {
+                    nextIdx++;
+                }
+
+                const chunkText = escapeHTML(text.substring(idx, nextIdx));
+
+                if (currentSpan && currentSearch) {
+                    // Ambos: etiqueta CSV + Búsqueda (Fondo etiqueta + borde/resplandor cian eléctrico)
+                    const col = getColorForLabel(currentSpan.etiqueta);
+                    const markStyle = `background-color: ${col.bg}; border-bottom: 2px solid ${col.border}; outline: 2px solid #22d3ee; box-shadow: 0 0 8px rgba(6, 182, 212, 0.9); border-radius: 2px; font-weight: 600;`;
+                    resultHTML += `<mark style="${markStyle}">${chunkText}</mark>`;
+                } else if (currentSearch) {
+                    // Solo búsqueda: Cian Eléctrico Liso
+                    const markStyle = `background-color: rgba(6, 182, 212, 0.45); border-bottom: 2px solid #06b6d4; outline: 1px solid #22d3ee; border-radius: 2px; color: transparent;`;
+                    resultHTML += `<mark style="${markStyle}">${chunkText}</mark>`;
+                } else if (currentSpan) {
+                    // Solo etiqueta CSV
+                    const col = getColorForLabel(currentSpan.etiqueta);
+                    const markStyle = `background-color: ${col.bg}; border-bottom: 2px solid ${col.border};`;
+                    resultHTML += `<mark style="${markStyle}">${chunkText}</mark>`;
+                } else {
+                    // Texto sin resaltar
+                    resultHTML += chunkText;
+                }
+
+                idx = nextIdx;
+            }
+
+            if (resultHTML.endsWith('\n')) {
+                resultHTML += ' ';
+            }
+
+            return resultHTML;
+        }
+
+        // Tab 2: Update CSV spans
+        async function updateCsvSpans(forcedDocId = null, forcedText = null) {
+            const csv_text = csvTextInput.value;
+            const unescape_csv = unescapeCsvChecks[0].checked;
+            const selected_doc_id = forcedDocId || docSelect.value || null;
+            const customText = (forcedText !== null) ? forcedText : (isUserEditingText2 ? textarea2.value : null);
+            const search_query = searchQuery2Input ? searchQuery2Input.value.trim() : '';
+
+            if (!csv_text || !csv_text.trim()) {
+                highlights2.innerHTML = '\n';
+                docSelectorWrapper.style.display = 'none';
+                legendBox.style.display = 'none';
+                csvSpansWrapper.style.display = 'none';
+                csvUnfoundWrapper.style.display = 'none';
+                csvErrorBox.style.display = 'none';
+                if (spanBox2) spanBox2.style.display = 'none';
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/parse-csv', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        csv_text,
+                        selected_doc_id,
+                        text: customText,
+                        unescape_csv,
+                        search_query
+                    })
+                });
+
+                if (!res.ok) throw new Error('Error parseando CSV');
+
+                const data = await res.json();
+                const documents = data.documents || [];
+                const spansFound = data.spans_found || [];
+                const spansUnfound = data.spans_unfound || [];
+                const searchResults = data.search_results || [];
+                const errors = data.errors || [];
+
+                if (errors.length > 0) {
+                    csvErrorBox.style.display = 'block';
+                    csvErrorBox.innerHTML = `⚠️ ${errors.map(e => escapeHTML(e)).join('<br>')}`;
+                } else {
+                    csvErrorBox.style.display = 'none';
+                }
+
+                // Actualizar desplegable de documentos
+                if (documents.length > 0) {
+                    docSelectorWrapper.style.display = 'block';
+                    docSelect.innerHTML = documents.map(doc => `
+                        <option value="${escapeHTML(doc.id)}" ${doc.id === data.selected_doc_id ? 'selected' : ''}>
+                            ${escapeHTML(doc.label)}
+                        </option>
+                    `).join('');
+                } else {
+                    docSelectorWrapper.style.display = 'none';
+                }
+
+                // Cargar texto limpio en el textarea si no fue editado por el usuario o si cambió el documento
+                if (!isUserEditingText2 || forcedDocId !== null) {
+                    textarea2.value = data.text_processed || '';
+                    isUserEditingText2 = false;
+                }
+
+                const currentText = textarea2.value;
+
+                // Render Highlights
+                highlights2.innerHTML = renderMultiColorHighlights(currentText, spansFound, searchResults);
+
+                // Panel de resultados de búsqueda para Tab 2
+                if (search_query) {
+                    spanBox2.style.display = 'block';
+                    if (searchResults.length > 0) {
+                        spanHeader2.innerHTML = `🔍 Se encontraron <strong>${searchResults.length}</strong> apariciones de "<em>${escapeHTML(search_query)}</em>" (resaltado cian eléctrico):`;
+                        spanList2.innerHTML = searchResults.map((item, idx) => `
+                            <div style="display: flex; align-items: center; justify-content: space-between; background: rgba(6, 182, 212, 0.1); padding: 0.4rem 0.75rem; border-radius: 0.4rem; font-size: 0.88rem; border-left: 3px solid #06b6d4; gap: 1rem;">
+                                <span>#${idx + 1} Texto: <strong>"${escapeHTML(item.matched_text)}"</strong></span>
+                                <span style="font-size: 0.75rem; color: #a5f3fc;">Start: <strong>${item.start}</strong> | End: <strong>${item.end}</strong></span>
+                            </div>
+                        `).join('');
+                    } else {
+                        spanHeader2.innerHTML = `⚠️ No se encontró "<em>${escapeHTML(search_query)}</em>" en el documento.`;
+                        spanList2.innerHTML = '';
+                    }
+                } else {
+                    spanBox2.style.display = 'none';
+                }
+
+                // Render Leyenda
+                labelColorMap = {};
+                const allLabels = [...new Set([...spansFound.map(s => s.etiqueta), ...spansUnfound.map(s => s.etiqueta)])].filter(Boolean);
+                
+                if (allLabels.length > 0 || (search_query && searchResults.length > 0)) {
+                    legendBox.style.display = 'block';
+                    let legendHtml = allLabels.map(lbl => {
+                        const col = getColorForLabel(lbl);
+                        return `
+                            <div class="legend-item" style="background: ${col.bg}; border-color: ${col.border}; color: ${col.text};">
+                                <span class="legend-color-dot" style="background: ${col.border};"></span>
+                                <span>${escapeHTML(lbl)}</span>
+                            </div>
+                        `;
+                    }).join('');
+
+                    if (search_query && searchResults.length > 0) {
+                        legendHtml += `
+                            <div class="legend-item" style="background: rgba(6, 182, 212, 0.35); border-color: #22d3ee; color: #a5f3fc;">
+                                <span class="legend-color-dot" style="background: #22d3ee;"></span>
+                                <span>🔍 Búsqueda: "${escapeHTML(search_query)}"</span>
+                            </div>
+                        `;
+                    }
+
+                    legendContainer.innerHTML = legendHtml;
+                } else {
+                    legendBox.style.display = 'none';
+                }
+
+                // Render Tabla de Spans Resaltados
+                if (spansFound.length > 0) {
+                    csvSpansWrapper.style.display = 'block';
+                    csvSummaryTitle.innerHTML = `✓ Spans Resaltados en Texto (<strong>${spansFound.length}</strong>):`;
+                    csvSpansTbody.innerHTML = spansFound.map((s) => {
+                        const col = getColorForLabel(s.etiqueta);
+                        const matchBadge = s.match_exact
+                            ? `<span class="badge-match ok">✓ Exacto</span>`
+                            : `<span class="badge-match warn">⚠ Parcial</span>`;
+
+                        return `
+                            <tr>
+                                <td><strong>Línea ${s.line_num}</strong></td>
+                                <td>
+                                    <span style="display: inline-block; padding: 0.2rem 0.5rem; border-radius: 0.4rem; font-size: 0.78rem; font-weight: 700; background: ${col.bg}; color: ${col.text}; border: 1px solid ${col.border};">
+                                        ${escapeHTML(s.etiqueta)}
+                                    </span>
+                                </td>
+                                <td><code>"${escapeHTML(s.valor)}"</code></td>
+                                <td><strong>${s.span_inicio}</strong></td>
+                                <td><strong>${s.span_fin}</strong></td>
+                                <td><code>"${escapeHTML(s.real_text)}"</code></td>
+                                <td>${matchBadge}</td>
+                            </tr>
+                        `;
+                    }).join('');
+                } else {
+                    csvSpansWrapper.style.display = 'none';
+                }
+
+                // Render Tabla de Spans No Encontrados / Manuales
+                if (spansUnfound.length > 0) {
+                    csvUnfoundWrapper.style.display = 'block';
+                    csvUnfoundTitle.innerHTML = `⚠️ Spans No Encontrados o Sin Coordenadas (<strong>${spansUnfound.length}</strong>):`;
+                    csvUnfoundTbody.innerHTML = spansUnfound.map((s) => {
+                        const col = getColorForLabel(s.etiqueta);
+                        const startDisplay = (s.span_inicio !== null) ? s.span_inicio : '-';
+                        const endDisplay = (s.span_fin !== null) ? s.span_fin : '-';
+
+                        return `
+                            <tr>
+                                <td><strong>Línea ${s.line_num}</strong></td>
+                                <td>
+                                    <span style="display: inline-block; padding: 0.2rem 0.5rem; border-radius: 0.4rem; font-size: 0.78rem; font-weight: 700; background: ${col.bg}; color: ${col.text}; border: 1px solid ${col.border};">
+                                        ${escapeHTML(s.etiqueta)}
+                                    </span>
+                                </td>
+                                <td><code>"${escapeHTML(s.valor)}"</code></td>
+                                <td><strong>${startDisplay}</strong></td>
+                                <td><strong>${endDisplay}</strong></td>
+                                <td><span class="badge-match diff">${escapeHTML(s.motivo)}</span></td>
+                            </tr>
+                        `;
+                    }).join('');
+                } else {
+                    csvUnfoundWrapper.style.display = 'none';
+                }
+
+            } catch (err) {
+                console.error('Error procesando CSV spans:', err);
+            }
+        }
+
+        // Listener cambio de Documento ID
+        docSelect.addEventListener('change', (e) => {
+            isUserEditingText2 = false;
+            updateCsvSpans(e.target.value, null);
+        });
+
+        // Event Listeners Tab 1
+        textarea1.addEventListener('input', () => {
             clearTimeout(debounceTimer);
+            highlights1.innerHTML = escapeHTML(textarea1.value) + '\n';
             debounceTimer = setTimeout(updateStats, 150);
         });
 
-        unescapeCsvCheck.addEventListener('change', updateStats);
         searchQueryInput.addEventListener('input', () => {
             clearTimeout(debounceTimer);
+            highlights1.innerHTML = escapeHTML(textarea1.value) + '\n';
             debounceTimer = setTimeout(updateStats, 150);
         });
+
+        searchQuery2Input.addEventListener('input', () => {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => updateCsvSpans(), 150);
+        });
+
+        // Event Listeners Tab 2
+        textarea2.addEventListener('input', () => {
+            isUserEditingText2 = true;
+            clearTimeout(debounceTimer);
+            highlights2.innerHTML = escapeHTML(textarea2.value) + '\n';
+            debounceTimer = setTimeout(() => updateCsvSpans(), 150);
+        });
+
+        csvTextInput.addEventListener('input', () => {
+            isUserEditingText2 = false;
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => updateCsvSpans(), 150);
+        });
+
+        // Manejo de archivo CSV (Upload & Drag-and-Drop)
+        csvFileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    csvTextInput.value = event.target.result;
+                    isUserEditingText2 = false;
+                    updateCsvSpans();
+                };
+                reader.readAsText(file);
+            }
+        });
+
+        csvDropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            csvDropZone.classList.add('dragover');
+        });
+
+        csvDropZone.addEventListener('dragleave', () => {
+            csvDropZone.classList.remove('dragover');
+        });
+
+        csvDropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            csvDropZone.classList.remove('dragover');
+            const file = e.dataTransfer.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    csvTextInput.value = event.target.result;
+                    isUserEditingText2 = false;
+                    updateCsvSpans();
+                };
+                reader.readAsText(file);
+            }
+        });
+
+        // Inicialización
+        updateStats();
     </script>
 </body>
 </html>
