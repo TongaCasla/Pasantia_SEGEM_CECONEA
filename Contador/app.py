@@ -251,22 +251,25 @@ def parse_csv():
         valor = s["valor"]
         etiqueta = s["etiqueta"]
 
-        if inicio is None or fin is None or inicio < 0 or fin < 0 or inicio >= fin or fin > len(text_processed):
-            spans_unfound.append({
-                "line_num": s["line_num"],
-                "etiqueta": etiqueta,
-                "valor": valor,
-                "span_inicio": inicio,
-                "span_fin": fin,
-                "real_text": "",
-                "motivo": "Sin coordenadas válidas o fuera de rango"
-            })
-            continue
+        # Verificar si las coordenadas son válidas
+        valid_range = (inicio is not None and fin is not None and inicio >= 0 and fin > inicio and fin <= len(text_processed))
+        real_text = text_processed[inicio:fin] if valid_range else ""
+        match_exact = (real_text == valor) if valid_range else False
 
-        real_text = text_processed[inicio:fin]
-        match_exact = (real_text == valor)
+        # Si no hay coincidencia exacta pero existe un valor, intentar corregir pequeños desfases (ej: 1 o 2 caracteres por comillas o normalizaciones)
+        if not match_exact and valor and text_processed:
+            search_min = max(0, (inicio if inicio is not None else 0) - 15)
+            search_max = min(len(text_processed), (fin if fin is not None else 0) + 15)
+            sub_text = text_processed[search_min:search_max]
+            adj_idx = sub_text.find(valor)
+            if adj_idx != -1:
+                inicio = search_min + adj_idx
+                fin = inicio + len(valor)
+                real_text = text_processed[inicio:fin]
+                match_exact = True
+                valid_range = True
 
-        if match_exact or real_text.strip():
+        if valid_range and (match_exact or real_text.strip()):
             spans_found.append({
                 "line_num": s["line_num"],
                 "etiqueta": etiqueta,

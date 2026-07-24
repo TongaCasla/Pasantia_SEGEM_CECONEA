@@ -15,7 +15,7 @@
         }
 
         body {
-            font-family: 'Inter', sans-serif;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
             min-height: 100vh;
             display: flex;
             align-items: center;
@@ -23,6 +23,7 @@
             background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
             color: #e0e0e0;
             padding: 1.5rem;
+            -webkit-font-smoothing: antialiased;
         }
 
         .container {
@@ -115,7 +116,7 @@
             display: block;
         }
 
-        /* ── Textarea Container and Backdrop ── */
+        /* ── Textarea Container y Backdrop en Tab 1 ── */
         .textarea-container {
             position: relative;
             width: 100%;
@@ -141,7 +142,6 @@
             z-index: 1;
             overflow-y: scroll;
             padding: 1.25rem;
-            padding-right: calc(1.25rem + 8px);
             box-sizing: border-box;
             -ms-overflow-style: none;
             scrollbar-width: none;
@@ -155,11 +155,14 @@
 
         .highlights {
             white-space: pre-wrap;
-            word-wrap: break-word;
+            word-break: break-word;
+            overflow-wrap: break-word;
             color: transparent;
-            font-family: 'Inter', sans-serif;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
             font-size: 1rem;
             line-height: 1.6;
+            letter-spacing: 0;
+            word-spacing: 0;
             margin: 0;
             padding: 0;
             border: none;
@@ -168,18 +171,23 @@
             -webkit-font-smoothing: antialiased;
         }
 
-        textarea {
+        textarea#text-input-1 {
             position: relative;
             z-index: 2;
             width: 100%;
-            min-height: 250px;
+            min-height: 170px;
             padding: 1.25rem;
             background: transparent;
             border: none;
             color: #f1f1f1;
-            font-family: 'Inter', sans-serif;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
             font-size: 1rem;
             line-height: 1.6;
+            letter-spacing: 0;
+            word-spacing: 0;
+            white-space: pre-wrap;
+            word-break: break-word;
+            overflow-wrap: break-word;
             resize: vertical;
             outline: none;
             display: block;
@@ -187,40 +195,158 @@
             margin: 0;
             overflow-y: scroll;
             scrollbar-width: thin;
-            scrollbar-color: rgba(255, 255, 255, 0.1) rgba(255, 255, 255, 0.01);
+            scrollbar-color: rgba(255, 255, 255, 0.15) rgba(255, 255, 255, 0.01);
             text-rendering: optimizeLegibility;
             -webkit-font-smoothing: antialiased;
         }
 
-        textarea::-webkit-scrollbar {
+        textarea#text-input-1::-webkit-scrollbar {
             width: 8px;
         }
 
-        textarea::-webkit-scrollbar-track {
+        textarea#text-input-1::-webkit-scrollbar-track {
             background: rgba(255, 255, 255, 0.01);
         }
 
-        textarea::-webkit-scrollbar-thumb {
-            background: rgba(255, 255, 255, 0.1);
+        textarea#text-input-1::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.15);
             border-radius: 4px;
         }
 
-        textarea::-webkit-scrollbar-thumb:hover {
+        textarea#text-input-1::-webkit-scrollbar-thumb:hover {
             background: rgba(129, 140, 248, 0.4);
         }
 
-        textarea::placeholder {
+        textarea#text-input-1::placeholder {
             color: #6b7280;
         }
 
-        /* ── Highlights styling ── */
-        mark {
-            background-color: rgba(234, 179, 8, 0.35);
-            border-bottom: 2px solid rgba(234, 179, 8, 0.95);
+        .highlights mark {
+            background-color: rgba(234, 179, 8, 0.38);
+            box-shadow: inset 0 -2px 0 rgba(234, 179, 8, 0.95);
             color: transparent;
             border-radius: 2px;
             margin: 0;
             padding: 0;
+            border: none;
+            font-weight: inherit;
+            font-style: inherit;
+            font-family: inherit;
+            font-size: inherit;
+            line-height: inherit;
+            vertical-align: baseline;
+        }
+
+        /* ── Document Text Viewer (Tab 2 - Visor Directo Read-Only de Precisión 100%) ── */
+        .document-viewer-card {
+            background: rgba(0, 0, 0, 0.25);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 0.85rem;
+            overflow: hidden;
+            margin-top: 0.4rem;
+        }
+
+        .document-viewer-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: rgba(255, 255, 255, 0.03);
+            padding: 0.6rem 1rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .doc-badge-readonly {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: #a78bfa;
+            background: rgba(167, 139, 250, 0.12);
+            border: 1px solid rgba(167, 139, 250, 0.3);
+            padding: 0.25rem 0.6rem;
+            border-radius: 0.4rem;
+        }
+
+        .btn-copy-doc {
+            background: rgba(255, 255, 255, 0.08);
+            color: #e0e0e0;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            padding: 0.3rem 0.75rem;
+            border-radius: 0.4rem;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn-copy-doc:hover {
+            background: rgba(129, 140, 248, 0.2);
+            border-color: #818cf8;
+            color: #ffffff;
+        }
+
+        .document-text-body {
+            width: 100%;
+            min-height: 150px;
+            max-height: 300px;
+            overflow-y: auto;
+            padding: 1.25rem;
+            color: #f1f1f1;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            font-size: 1.02rem;
+            line-height: 1.7;
+            white-space: pre-wrap;
+            word-break: break-word;
+            overflow-wrap: break-word;
+            user-select: text;
+            -webkit-user-select: text;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255, 255, 255, 0.15) rgba(255, 255, 255, 0.01);
+        }
+
+        .document-text-body::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .document-text-body::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 4px;
+        }
+
+        /* Resaltados directos integrados en el flujo de texto (Cero Desfase Visual) */
+        .document-text-body mark.span-tag {
+            border-radius: 3px;
+            padding: 0.12em 0.25em;
+            font-weight: 600;
+            display: inline;
+            box-decoration-break: clone;
+            -webkit-box-decoration-break: clone;
+            cursor: help;
+            transition: filter 0.15s ease;
+        }
+
+        .document-text-body mark.span-tag:hover {
+            filter: brightness(1.25);
+        }
+
+        .document-text-body mark.search-tag {
+            background-color: rgba(6, 182, 212, 0.45);
+            border-bottom: 2px solid #06b6d4;
+            outline: 1px solid #22d3ee;
+            color: #ffffff;
+            border-radius: 3px;
+            padding: 0.1em 0.25em;
+            font-weight: 600;
+        }
+
+        .document-text-body mark.combo-tag {
+            outline: 2px solid #22d3ee;
+            box-shadow: 0 0 10px rgba(6, 182, 212, 0.85);
+            border-radius: 3px;
+            padding: 0.12em 0.25em;
+            font-weight: 700;
+            cursor: help;
         }
 
         /* ── Stats Grid ── */
@@ -522,16 +648,21 @@
                     <div id="span-list-2" style="display: flex; flex-direction: column; gap: 0.4rem; max-height: 180px; overflow-y: auto; padding-right: 0.3rem;"></div>
                 </div>
 
+                <!-- Visor Read-Only de Texto del Documento Seleccionado -->
                 <div style="margin-bottom: 1rem;">
-                    <label style="font-size: 0.9rem; font-weight: 600; color: #a78bfa; margin-bottom: 0.4rem; display: block;">2. Texto Limpio del Documento Seleccionado:</label>
-                    <div class="textarea-container" id="textarea-container-2">
-                        <div class="backdrop" id="backdrop-2">
-                            <div class="highlights" id="highlights-2"></div>
+                    <label style="font-size: 0.9rem; font-weight: 600; color: #a78bfa; margin-bottom: 0.4rem; display: block;">2. Texto del Documento Seleccionado (Modo Lectura Directa):</label>
+                    <div class="document-viewer-card">
+                        <div class="document-viewer-header">
+                            <div class="doc-badge-readonly">
+                                🔒 Texto Protegido (No modificable)
+                            </div>
+                            <button class="btn-copy-doc" onclick="copyDocumentText()">
+                                📋 Copiar Texto
+                            </button>
                         </div>
-                        <textarea
-                            id="text-input-2"
-                            placeholder="El texto limpio del documento se cargará automáticamente al elegir un ID en el desplegable..."
-                        ></textarea>
+                        <div id="text-display-2" class="document-text-body">
+                            <span style="color: #6b7280; font-style: italic;">Cargando documento...</span>
+                        </div>
                     </div>
                 </div>
 
@@ -590,7 +721,7 @@
     </div>
 
     <script>
-        // Paleta de colores para etiquetas distintas
+        // Paleta de colores armoniosa para etiquetas distintas
         const LABEL_PALETTE = [
             { bg: 'rgba(234, 179, 8, 0.35)', border: 'rgba(234, 179, 8, 0.95)', text: '#fef08a' },   // Amarillo
             { bg: 'rgba(59, 130, 246, 0.35)', border: 'rgba(59, 130, 246, 0.95)', text: '#93c5fd' },   // Azul
@@ -623,10 +754,7 @@
         const spanList = document.getElementById('span-list');
 
         // Elementos UI Tab 2
-        const textarea2 = document.getElementById('text-input-2');
-        const backdrop2 = document.getElementById('backdrop-2');
-        const highlights2 = document.getElementById('highlights-2');
-        const textareaContainer2 = document.getElementById('textarea-container-2');
+        const textDisplay2 = document.getElementById('text-display-2');
         const csvTextInput = document.getElementById('csv-text-input');
         const csvFileInput = document.getElementById('csv-file-input');
         const csvDropZone = document.getElementById('csv-drop-zone');
@@ -652,7 +780,13 @@
         const unescapeCsvChecks = document.querySelectorAll('.unescape-csv');
 
         let debounceTimer;
-        let isUserEditingText2 = false;
+        let currentDocumentRawText = "";
+
+        // Medir ancho exacto de scrollbar para Tab 1
+        function syncTab1Scrollbar() {
+            const scrollbarWidth = textarea1.offsetWidth - textarea1.clientWidth;
+            backdrop1.style.paddingRight = `calc(1.25rem + ${scrollbarWidth}px)`;
+        }
 
         // Tab Navigation
         function switchTab(tabNum) {
@@ -665,26 +799,20 @@
             if (tabNum === 2) {
                 updateCsvSpans();
             } else {
+                syncTab1Scrollbar();
                 updateStats();
             }
         }
 
-        // Sincronización de scrolls
+        // Sincronización de scroll Tab 1
         textarea1.addEventListener('scroll', () => {
             backdrop1.scrollTop = textarea1.scrollTop;
             backdrop1.scrollLeft = textarea1.scrollLeft;
         });
 
-        textarea2.addEventListener('scroll', () => {
-            backdrop2.scrollTop = textarea2.scrollTop;
-            backdrop2.scrollLeft = textarea2.scrollLeft;
-        });
-
-        // Contenedor Focus
+        // Contenedor Focus Tab 1
         textarea1.addEventListener('focus', () => textareaContainer1.classList.add('focus'));
         textarea1.addEventListener('blur', () => textareaContainer1.classList.remove('focus'));
-        textarea2.addEventListener('focus', () => textareaContainer2.classList.add('focus'));
-        textarea2.addEventListener('blur', () => textareaContainer2.classList.remove('focus'));
 
         // Sincronización entre checkboxes unescape
         unescapeCsvChecks.forEach(chk => {
@@ -715,7 +843,20 @@
                 .replace(/'/g, '&#039;');
         }
 
-        // Aplicar highlights estándar (Tab 1)
+        // Copiar texto del documento en Tab 2
+        function copyDocumentText() {
+            if (!currentDocumentRawText) return;
+            navigator.clipboard.writeText(currentDocumentRawText).then(() => {
+                const btn = document.querySelector('.btn-copy-doc');
+                const orig = btn.innerHTML;
+                btn.innerHTML = '✓ ¡Copiado!';
+                setTimeout(() => btn.innerHTML = orig, 1500);
+            }).catch(err => {
+                console.error('Error al copiar:', err);
+            });
+        }
+
+        // Aplicar highlights estándar en Tab 1
         function applyHighlights(text, searchResults) {
             if (!searchResults || searchResults.length === 0) {
                 return escapeHTML(text) + '\n';
@@ -744,6 +885,7 @@
 
         // Tab 1: Update stats & single query highlights
         async function updateStats() {
+            syncTab1Scrollbar();
             const text = textarea1.value;
             const unescape_csv = unescapeCsvChecks[0].checked;
             const search_query = searchQueryInput.value.trim();
@@ -789,12 +931,9 @@
             }
         }
 
-        // Tab 2: Render CSV spans & search query multi-color highlights
-        function renderMultiColorHighlights(text, spans, searchResults) {
-            if (!text) return '\n';
-            if ((!spans || spans.length === 0) && (!searchResults || searchResults.length === 0)) {
-                return escapeHTML(text) + '\n';
-            }
+        // Tab 2: Renderizado Directo de HTML (Read-Only) con Cero Desfase Visual
+        function renderDirectFormattedHTML(text, spans, searchResults) {
+            if (!text) return '<span style="color: #6b7280; font-style: italic;">No hay texto en el documento seleccionado</span>';
 
             const len = text.length;
             const charSpan = new Array(len).fill(null);
@@ -839,44 +978,37 @@
                 const chunkText = escapeHTML(text.substring(idx, nextIdx));
 
                 if (currentSpan && currentSearch) {
-                    // Ambos: etiqueta CSV + Búsqueda (Fondo etiqueta + borde/resplandor cian eléctrico)
                     const col = getColorForLabel(currentSpan.etiqueta);
-                    const markStyle = `background-color: ${col.bg}; border-bottom: 2px solid ${col.border}; outline: 2px solid #22d3ee; box-shadow: 0 0 8px rgba(6, 182, 212, 0.9); border-radius: 2px; font-weight: 600;`;
-                    resultHTML += `<mark style="${markStyle}">${chunkText}</mark>`;
+                    const tooltip = `[${escapeHTML(currentSpan.etiqueta)}] Valor: ${escapeHTML(currentSpan.valor)} (${currentSpan.span_inicio}-${currentSpan.span_fin}) | Fila ${currentSpan.line_num} | 🔍 Coincide con búsqueda`;
+                    const markStyle = `background-color: ${col.bg}; border-bottom: 2px solid ${col.border}; color: ${col.text};`;
+                    resultHTML += `<mark class="span-tag combo-tag" style="${markStyle}" title="${tooltip}">${chunkText}</mark>`;
                 } else if (currentSearch) {
-                    // Solo búsqueda: Cian Eléctrico Liso
-                    const markStyle = `background-color: rgba(6, 182, 212, 0.45); border-bottom: 2px solid #06b6d4; outline: 1px solid #22d3ee; border-radius: 2px; color: transparent;`;
-                    resultHTML += `<mark style="${markStyle}">${chunkText}</mark>`;
+                    resultHTML += `<mark class="search-tag" title="Coincidencia de Búsqueda">${chunkText}</mark>`;
                 } else if (currentSpan) {
-                    // Solo etiqueta CSV
                     const col = getColorForLabel(currentSpan.etiqueta);
-                    const markStyle = `background-color: ${col.bg}; border-bottom: 2px solid ${col.border};`;
-                    resultHTML += `<mark style="${markStyle}">${chunkText}</mark>`;
+                    const tooltip = `[${escapeHTML(currentSpan.etiqueta)}] Valor: ${escapeHTML(currentSpan.valor)} (${currentSpan.span_inicio}-${currentSpan.span_fin}) | Fila ${currentSpan.line_num}`;
+                    const markStyle = `background-color: ${col.bg}; border-bottom: 2px solid ${col.border}; color: ${col.text};`;
+                    resultHTML += `<mark class="span-tag" style="${markStyle}" title="${tooltip}">${chunkText}</mark>`;
                 } else {
-                    // Texto sin resaltar
                     resultHTML += chunkText;
                 }
 
                 idx = nextIdx;
             }
 
-            if (resultHTML.endsWith('\n')) {
-                resultHTML += ' ';
-            }
-
             return resultHTML;
         }
 
         // Tab 2: Update CSV spans
-        async function updateCsvSpans(forcedDocId = null, forcedText = null) {
+        async function updateCsvSpans(forcedDocId = null) {
             const csv_text = csvTextInput.value;
             const unescape_csv = unescapeCsvChecks[0].checked;
             const selected_doc_id = forcedDocId || docSelect.value || null;
-            const customText = (forcedText !== null) ? forcedText : (isUserEditingText2 ? textarea2.value : null);
             const search_query = searchQuery2Input ? searchQuery2Input.value.trim() : '';
 
             if (!csv_text || !csv_text.trim()) {
-                highlights2.innerHTML = '\n';
+                textDisplay2.innerHTML = '<span style="color: #6b7280; font-style: italic;">Pegá un CSV arriba o arrastrá un archivo para visualizar sus documentos y spans...</span>';
+                currentDocumentRawText = "";
                 docSelectorWrapper.style.display = 'none';
                 legendBox.style.display = 'none';
                 csvSpansWrapper.style.display = 'none';
@@ -893,7 +1025,6 @@
                     body: JSON.stringify({
                         csv_text,
                         selected_doc_id,
-                        text: customText,
                         unescape_csv,
                         search_query
                     })
@@ -927,16 +1058,11 @@
                     docSelectorWrapper.style.display = 'none';
                 }
 
-                // Cargar texto limpio en el textarea si no fue editado por el usuario o si cambió el documento
-                if (!isUserEditingText2 || forcedDocId !== null) {
-                    textarea2.value = data.text_processed || '';
-                    isUserEditingText2 = false;
-                }
+                // Cargar texto limpio procesado
+                currentDocumentRawText = data.text_processed || '';
 
-                const currentText = textarea2.value;
-
-                // Render Highlights
-                highlights2.innerHTML = renderMultiColorHighlights(currentText, spansFound, searchResults);
+                // Renderizar visor de texto directo (Read-Only 100% preciso sin desfase)
+                textDisplay2.innerHTML = renderDirectFormattedHTML(currentDocumentRawText, spansFound, searchResults);
 
                 // Panel de resultados de búsqueda para Tab 2
                 if (search_query) {
@@ -1052,8 +1178,7 @@
 
         // Listener cambio de Documento ID
         docSelect.addEventListener('change', (e) => {
-            isUserEditingText2 = false;
-            updateCsvSpans(e.target.value, null);
+            updateCsvSpans(e.target.value);
         });
 
         // Event Listeners Tab 1
@@ -1075,15 +1200,7 @@
         });
 
         // Event Listeners Tab 2
-        textarea2.addEventListener('input', () => {
-            isUserEditingText2 = true;
-            clearTimeout(debounceTimer);
-            highlights2.innerHTML = escapeHTML(textarea2.value) + '\n';
-            debounceTimer = setTimeout(() => updateCsvSpans(), 150);
-        });
-
         csvTextInput.addEventListener('input', () => {
-            isUserEditingText2 = false;
             clearTimeout(debounceTimer);
             debounceTimer = setTimeout(() => updateCsvSpans(), 150);
         });
@@ -1095,7 +1212,6 @@
                 const reader = new FileReader();
                 reader.onload = (event) => {
                     csvTextInput.value = event.target.result;
-                    isUserEditingText2 = false;
                     updateCsvSpans();
                 };
                 reader.readAsText(file);
@@ -1119,14 +1235,16 @@
                 const reader = new FileReader();
                 reader.onload = (event) => {
                     csvTextInput.value = event.target.result;
-                    isUserEditingText2 = false;
                     updateCsvSpans();
                 };
                 reader.readAsText(file);
             }
         });
 
+        window.addEventListener('resize', syncTab1Scrollbar);
+
         // Inicialización
+        syncTab1Scrollbar();
         updateStats();
     </script>
 </body>
