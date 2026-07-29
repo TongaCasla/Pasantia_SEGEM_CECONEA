@@ -1,0 +1,19 @@
+Prompt para script de gliner
+
+Tomando este repositorio como guia https://github.com/fastino-ai/GLiNER2/tree/main/tutorial
+quiero hacer un script en pyhton que use gliner para extraer entidades:
+"person", "national_id_number", "government_id", "tax_id", "bank_account", "account_number"
+con un csv de input con el siguiente formato:
+id;nombre_archivo;clasificacion;texto_limpio;
+//Nota: puede tener mas campos el input pero estos son los relevantes ver mas adelante lo de texto_limpio
+
++Modelo a probar: fastino/gliner2-privacy-filter-PII-multi
++ output en csv y json: numero_archivo;id;nombre_archivo;clasificacion;texto_limpio;etiqueta;valor;span_inicio;span_fin;score 
++ el campo "texto_limpio" es el que debe utilizar para extraer de igual forma se debe configurar por parametro de ejecucion por si la estructura del input es distinta
++ parametrizar por comando el % de confianza.
++ parametrizar la ruta del input y los outputs.
++ tener en cuenta la funcion  extract_entities_long(...)  para manejar mejor los textos 
++ tener en cuenta que "national_id_number", "government_id", "tax_id" pueden extraer la misma entidad pero con distinta etiqueta al igual que
+"bank_account", "account_number" por lo que se tiene que tomar una entidad. 
+Por ejemplo se extrae un dni 2 veces con las etiquetas "national_id_number", "government_id" se debe quedar con una sola entidad.
++ el idioma es español pero se utilizan las etiquetas en ingles para la extraccion

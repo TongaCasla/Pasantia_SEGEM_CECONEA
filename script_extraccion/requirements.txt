@@ -1,0 +1,4 @@
+gliner2
+torch
+pandas
+tqdm
