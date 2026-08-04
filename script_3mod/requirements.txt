@@ -1,0 +1,5 @@
+gliner>=0.2.24
+gliner2
+pandas
+tqdm
+torch
