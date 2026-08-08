@@ -1,0 +1,23 @@
+v 1.4
+- Corrección del conteo inflado de entidades gold: las predicciones `extra_fragmento` ahora dejan `gold_id` vacío y registran la referencia a la entidad en `gold_id_relacionado`, evitando duplicar el conteo de entidades gold reales.
+- Incorporación de la columna `extra_fragmento` en las tablas de resumen diagnóstico (`resumen_detecciones_diagnosticas_*`) y actualización de la invariante de extras (`extras_oficiales == extras_asociables + extras_reales + extra_fragmento`).
+- Exclusión de filas `extra_fragmento` del matching de candidatos en la detección diagnóstica, evitando asociaciones redundantes.
+- Formato numérico en `gold_id`: el identificador de entidades gold ahora es numérico simple (`0`, `1`, `2`, ...), facilitando el filtrado y ordenamiento en planillas de cálculo.
+
+v 1.3
+- Incorporación del Tier 5 de matching (`overlap_span`) basado en solapamiento físico de spans para resolver el caso de entidades fragmentadas por los modelos.
+- Clasificación de predicciones fragmentadas sobrantes como `extra` con subtipo `extra_fragmento` (FP leve), registrando la trazabilidad a la entidad en `gold_id_relacionado` sin duplicar la entidad gold original para no alterar el inventario real de entidades gold.
+- Modificación en la detección diagnóstica para descartar/degradar coincidencias por contención textual cuando la distancia entre spans supera un umbral configurable (`max_span_distance_for_containment`).
+- Reordenamiento de candidatos diagnósticos priorizando el solapamiento de spans (`hay_overlap_span`) sobre coincidencias textuales lejanas.
+- Incorporación de pruebas automáticas (`test_fragmented_entity_tier5_and_extra_fragmento` y `test_distant_containment_is_not_matched_in_diagnostics`).
+
+v 1.2
+- Reestructuración de la lógica de matching a un esquema global multipaso (tier-based). Esto previene que entidades duplicadas o similares se asocien incorrectamente, priorizando la cercanía y solapamiento de spans en cada nivel (exacto, valor, etiqueta incorrecta, parcial).
+- Ajuste de las rutas relativas en `config.yaml` para permitir correr la evaluación directamente desde la raíz del proyecto.
+- Incorporación de pruebas automáticas (`test_greedy_span_mismatch_issue`) para validar el caso de conflicto de spans en nombres repetidos.
+
+v 1.1
+- Ahora todos los reportes CSV individuales muestran el número de archivo al que pertenecen como la primera columna de la tabla.
+- Este número de archivo se saca directamente de la lista de referencia o "gold standard" cruzando el ID del documento.
+- Las tablas globales (que muestran el resumen de rendimiento general de los modelos o etiquetas) se mantienen igual porque no corresponden a un único documento.
+- Agregamos pruebas automáticas para comprobar que el número de archivo siempre se coloque correctamente en su lugar.
