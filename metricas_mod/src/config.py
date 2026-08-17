@@ -24,12 +24,15 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "span_start": "span_inicio",
         "span_end": "span_fin",
     },
-    "matching": {
-        "rapidfuzz_threshold": 85,
-        "length_tolerance": 3,
-        "numeric_labels": ["dni", "cuit_cuil", "cbu", "cvu", "monto"],
-        "fuzzy_labels": ["persona", "persona_juridica", "alias"],
-        "label_aliases": {
+        "matching": {
+            "rapidfuzz_threshold": 85,
+            "length_tolerance": 3,
+            "min_span_overlap_ratio": 0.30,
+            "tier5_token_set_threshold": 60,
+            "tier5_partial_ratio_threshold": 70,
+            "numeric_labels": ["dni", "cuit_cuil", "cbu", "cvu", "monto"],
+            "fuzzy_labels": ["persona", "persona_juridica", "alias"],
+            "label_aliases": {
             "person": "persona",
             "national_id_number": "dni",
             "government_id": "dni",

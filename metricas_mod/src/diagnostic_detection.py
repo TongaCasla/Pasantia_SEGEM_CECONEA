@@ -7,7 +7,7 @@ from typing import Any
 import pandas as pd
 from rapidfuzz import fuzz
 
-from normalization import clean_text
+from normalization import clean_text, normalize_value
 
 
 TITLE_PATTERN = re.compile(
@@ -31,7 +31,7 @@ class DiagnosticConfig:
     min_containment_chars: int = 6
     min_containment_tokens: int = 2
     min_containment_ratio: float = 0.60
-    identifier_labels: tuple[str, ...] = ("dni", "cuit_cuil", "cbu", "cvu")
+    identifier_labels: tuple[str, ...] = ("dni", "cuit_cuil", "cbu", "cvu", "monto")
 
 
 def diagnostic_config_from_dict(raw: dict[str, Any] | None) -> DiagnosticConfig:
@@ -50,7 +50,7 @@ def diagnostic_config_from_dict(raw: dict[str, Any] | None) -> DiagnosticConfig:
         min_containment_chars=int(raw.get("min_containment_chars", 6)),
         min_containment_tokens=int(raw.get("min_containment_tokens", 2)),
         min_containment_ratio=float(raw.get("min_containment_ratio", 0.60)),
-        identifier_labels=tuple(raw.get("identifier_labels", ("dni", "cuit_cuil", "cbu", "cvu"))),
+        identifier_labels=tuple(raw.get("identifier_labels", ("dni", "cuit_cuil", "cbu", "cvu", "monto"))),
     )
 
 
@@ -108,10 +108,8 @@ def _tokens(value: Any) -> list[str]:
     return re.findall(r"\w+", _norm(value))
 
 
-def _identifier_digits(value: Any) -> str:
-    text = clean_text(value)
-    text = re.sub(r"(?i)\b(?:dni|dn!|cuit|cuil|cbu|cvu)\b", " ", text)
-    return re.sub(r"\D", "", text)
+def _normalized_numeric_value(label: str, value: Any, cfg: DiagnosticConfig) -> str:
+    return normalize_value(label, value, set(cfg.identifier_labels))
 
 
 def _containment_stats(gold_value: Any, pred_value: Any) -> tuple[bool, float, int]:
@@ -164,8 +162,8 @@ def _candidate_row(gold: dict[str, Any], pred: dict[str, Any], cfg: DiagnosticCo
     length_diff = abs(len(clean_text(gold_value)) - len(clean_text(pred_value)))
     gold_label = str(gold.get("etiqueta_gold", ""))
     pred_label = str(pred.get("etiqueta_predicha", ""))
-    identifier_gold = _identifier_digits(gold_value) if gold_label in cfg.identifier_labels else ""
-    identifier_pred = _identifier_digits(pred_value) if pred_label in cfg.identifier_labels else ""
+    identifier_gold = _normalized_numeric_value(gold_label, gold_value, cfg) if gold_label in cfg.identifier_labels else ""
+    identifier_pred = _normalized_numeric_value(pred_label, pred_value, cfg) if pred_label in cfg.identifier_labels else ""
     identifier_match = bool(identifier_gold and identifier_pred and identifier_gold == identifier_pred)
     if gold_label in cfg.identifier_labels or pred_label in cfg.identifier_labels:
         if not identifier_match:
@@ -461,6 +459,48 @@ def summarize_diagnostic_detection(detail: pd.DataFrame, diagnostics: pd.DataFra
                 "extra_fragmento": extra_fragmento,
                 "invariante_no_encontradas_ok": official_missing == alta + media + revision + sin_candidato,
                 "invariante_extras_ok": extras_official == extras_asociables + extras_reales + extra_fragmento,
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def summarize_wide_model_detection(detail: pd.DataFrame, diagnostics: pd.DataFrame) -> pd.DataFrame:
+    if detail.empty:
+        return pd.DataFrame()
+    rows = []
+    for model, group in detail.groupby("modelo"):
+        gold_rows = group[group["gold_id"].astype(str).ne("")]
+        official_detected = gold_rows[gold_rows["tipo_resultado"].isin(["exacta_span", "exacta_valor", "parcial"])]
+        official_gold_keys = set(zip(official_detected["modelo"].astype(str), official_detected["gold_id"].astype(str)))
+
+        diag_model = diagnostics[diagnostics["modelo"] == model] if not diagnostics.empty else pd.DataFrame()
+        reliable_diag = (
+            diag_model[diag_model["tipo_diagnostico"].isin(["detectada_adicional_alta", "detectada_adicional_media"])]
+            if not diag_model.empty
+            else pd.DataFrame()
+        )
+        diagnostic_gold_keys = (
+            set(zip(reliable_diag["modelo"].astype(str), reliable_diag["gold_id"].astype(str)))
+            if not reliable_diag.empty
+            else set()
+        )
+        detectadas_amplias = len(official_gold_keys | diagnostic_gold_keys)
+        extras_reales = int((diag_model["tipo_diagnostico"] == "extra_real").sum()) if not diag_model.empty else 0
+        no_encontradas_reales = int((diag_model["tipo_diagnostico"] == "no_encontrada_sin_candidato").sum()) if not diag_model.empty else 0
+        candidatas_revision = int((diag_model["tipo_diagnostico"] == "candidata_revision").sum()) if not diag_model.empty else 0
+        precision = detectadas_amplias / (detectadas_amplias + extras_reales) if detectadas_amplias + extras_reales else 0.0
+        recall = detectadas_amplias / (detectadas_amplias + no_encontradas_reales) if detectadas_amplias + no_encontradas_reales else 0.0
+        f1 = 2 * precision * recall / (precision + recall) if precision + recall else 0.0
+        rows.append(
+            {
+                "modelo": model,
+                "detectadas_amplias": detectadas_amplias,
+                "extras_reales": extras_reales,
+                "no_encontradas_reales": no_encontradas_reales,
+                "candidatas_revision": candidatas_revision,
+                "precision_amplia": round(precision, 4),
+                "recall_amplio": round(recall, 4),
+                "f1_amplio": round(f1, 4),
             }
         )
     return pd.DataFrame(rows)

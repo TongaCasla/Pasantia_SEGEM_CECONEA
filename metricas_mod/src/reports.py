@@ -192,12 +192,17 @@ def balanced_error_samples(detail: pd.DataFrame, per_group: int = 3) -> pd.DataF
 def write_dashboard(
     path: str | Path,
     metrics_model: pd.DataFrame,
+    metrics_model_optional: pd.DataFrame,
+    metrics_model_total: pd.DataFrame,
     metrics_label: pd.DataFrame,
+    wide_model_summary: pd.DataFrame,
     detail: pd.DataFrame,
     graph_files: list[Path],
     gold_audit: pd.DataFrame | None = None,
     diagnostic_summary: pd.DataFrame | dict[str, pd.DataFrame] | None = None,
     diagnostic_detail: pd.DataFrame | None = None,
+    metrics_recovery: pd.DataFrame | None = None,
+    metrics_recovery_isolated: pd.DataFrame | None = None,
 ) -> None:
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -283,6 +288,15 @@ def write_dashboard(
   <h2>Ranking de modelos</h2>
   <p class="intro">El ranking ordena los modelos por F1 relajado y luego por F1 estricto. El F1 relajado acepta coincidencias parciales; el estricto solo acepta coincidencias exactas.</p>
   {dataframe_to_html(ranking)}
+  <h2>Metricas opcionales por modelo</h2>
+  <p class="intro">Esta tabla agrupa solamente las etiquetas configuradas como opcionales para el tipo documental en `config.yaml`, por ejemplo DNI, CUIT/CUIL, CBU, CVU, monto, alias y persona_juridica cuando correspondan. Es complementaria y no modifica el ranking principal.</p>
+  {dataframe_to_html(metrics_model_optional)}
+  <h2>Métricas totales por modelo</h2>
+  <p class="intro">Esta tabla incluye entidades principales y opcionales para dar una vista global del rendimiento del modelo sobre todas las entidades evaluadas. No reemplaza ni modifica el ranking principal.</p>
+  {dataframe_to_html(metrics_model_total)}
+  <h2>Resumen amplio por modelo</h2>
+  <p class="intro">Esta metrica complementaria no reemplaza las metricas oficiales. Suma detecciones oficiales y detecciones adicionales confiables recuperadas por la capa diagnostica. Las `candidatas_revision` no cuentan como aciertos y `extra_fragmento` no se penaliza como falso positivo en este resumen amplio.</p>
+  {dataframe_to_html(wide_model_summary)}
   <h2>Metricas por etiqueta</h2>
   <p class="intro">Esta tabla permite ver si el rendimiento cambia segun la entidad. Por ejemplo, un modelo puede funcionar bien para personas y mal para identificadores o cuentas.</p>
   {dataframe_to_html(metrics_label)}
@@ -300,6 +314,12 @@ def write_dashboard(
   {dataframe_to_html(diagnostic_summary_total)}
   <h2>Muestra diagnostica</h2>
   {selected_dataframe_to_html(diagnostic_detail, max_rows=40, columns=["documento", "modelo", "tipo_diagnostico", "nivel_confianza", "regla_principal", "etiqueta_gold", "valor_gold", "etiqueta_predicha", "valor_predicho", "token_sort_ratio", "token_set_ratio", "partial_ratio", "porcentaje_contencion", "tokens_coincidentes", "motivo_deteccion"])}
+  <h2>Métricas con recuperación por OCR corregido (solo etiquetas afectadas)</h2>
+  <p class="intro">Esta tabla muestra el impacto de la recuperación por <code>ocr_corregido</code> aplicando únicamente sobre las entidades <code>no_encontrada_sin_candidato</code> del diagnóstico para las etiquetas configuradas (ej: persona, persona_juridica). Se busca recuperar omisiones puras que el diagnóstico no haya asociado a ninguna extracción extra.</p>
+  {dataframe_to_html(metrics_recovery_isolated if metrics_recovery_isolated is not None else pd.DataFrame())}
+  <h2>Métricas con recuperación por OCR corregido (Total)</h2>
+  <p class="intro">Esta tabla recalcula precision, recall y F1 sobre TODAS las entidades del modelo (principales y opcionales), considerando la recuperación obtenida mediante el campo <code>ocr_corregido</code> sobre las entidades <code>no_encontrada_sin_candidato</code> luego de la evaluación diagnóstica.</p>
+  {dataframe_to_html(metrics_recovery if metrics_recovery is not None else pd.DataFrame())}
   <h2>Graficos</h2>
   <div class="grid">{graph_html}</div>
   <h2>Muestras de errores</h2>

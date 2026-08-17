@@ -137,12 +137,17 @@ def write_dashboard_pdf(
     pdf_path: str | Path,
     metadata: dict[str, Any],
     metrics_model: pd.DataFrame,
+    metrics_model_optional: pd.DataFrame,
+    metrics_model_total: pd.DataFrame,
     metrics_label: pd.DataFrame,
+    wide_model_summary: pd.DataFrame,
     detail: pd.DataFrame,
     graph_files: list[Path],
-    gold_audit: pd.DataFrame,
+    gold_audit: pd.DataFrame | None = None,
     diagnostic_summary: pd.DataFrame | dict[str, pd.DataFrame] | None = None,
     diagnostic_detail: pd.DataFrame | None = None,
+    metrics_recovery: pd.DataFrame | None = None,
+    metrics_recovery_isolated: pd.DataFrame | None = None,
 ) -> tuple[bool, str]:
     try:
         rl = _require_reportlab()
@@ -222,6 +227,15 @@ def write_dashboard_pdf(
     story.extend(_table(gold_audit_summary(gold_audit), "Auditoria del gold", styles))
     story.extend(_table(gold_audit_by_label(gold_audit), "Gold por etiqueta", styles))
     story.extend(_table(metrics_model, "Ranking y metricas por modelo", styles))
+    story.extend(_table(metrics_model_optional, "Metricas opcionales por modelo", styles))
+    story.extend(_table(metrics_model_total, "Metricas totales por modelo", styles))
+    story.append(
+        Paragraph(
+            "Resumen amplio por modelo: vista complementaria que suma detecciones oficiales y detecciones adicionales confiables del diagnostico. Las candidatas a revision no cuentan como aciertos y extra_fragmento no penaliza como falso positivo.",
+            styles["BodyText"],
+        )
+    )
+    story.extend(_table(wide_model_summary, "Resumen amplio por modelo", styles))
     metrics_columns = [
         "modelo",
         "etiqueta",
@@ -266,6 +280,13 @@ def write_dashboard_pdf(
         "motivo_deteccion",
     ]
     story.extend(_table(diagnostic_detail, "Muestra diagnostica", styles, max_rows=40, columns=diagnostic_columns))
+
+    if metrics_recovery_isolated is not None and not metrics_recovery_isolated.empty:
+        story.append(Paragraph("Esta tabla muestra el impacto de la recuperación por ocr_corregido aplicando únicamente sobre las entidades no_encontrada_sin_candidato del diagnóstico para las etiquetas configuradas (ej: persona, persona_juridica).", styles["Small"]))
+        story.extend(_table(metrics_recovery_isolated, "Metricas con recuperacion OCR (aislada)", styles))
+    if metrics_recovery is not None and not metrics_recovery.empty:
+        story.append(Paragraph("Esta tabla recalcula precision, recall y F1 sobre TODAS las entidades del modelo (principales y opcionales), considerando la recuperación obtenida mediante el campo ocr_corregido sobre las entidades no_encontrada_sin_candidato luego del diagnóstico.", styles["Small"]))
+        story.extend(_table(metrics_recovery, "Metricas con recuperacion OCR (Total)", styles))
 
     story.append(PageBreak())
     story.append(Paragraph("Graficos", styles["Heading2"]))

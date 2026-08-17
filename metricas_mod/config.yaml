@@ -8,7 +8,7 @@ input_paths:
     gold: inputs/oficios/input_revision_manual/oficios_input.csv
     results_glob: inputs/oficios/pruebas_modelo/*.csv
   conjunta:
-    gold: inputs/conjunta/input_revision_manual/BD_supervisada_conjunta.csv
+    gold: inputs/conjunta/input_revision_manual/bd_supervisada_conjunta_v1.csv
     results_glob: inputs/conjunta/pruebas_modelo/*.csv
 
 columns:
@@ -27,6 +27,8 @@ matching:
   rapidfuzz_threshold: 85
   length_tolerance: 3
   min_span_overlap_ratio: 0.30
+  tier5_token_set_threshold: 60
+  tier5_partial_ratio_threshold: 70
   numeric_labels:
     - dni
     - cuit_cuil
@@ -47,6 +49,12 @@ matching:
     money: monto
     amount: monto
 
+recuperacion:
+  enabled: true
+  labels:
+    - persona
+    - persona_juridica
+
 diagnostic_detection:
   enabled: true
   token_sort_threshold: 75
@@ -66,6 +74,7 @@ diagnostic_detection:
     - cuit_cuil
     - cbu
     - cvu
+    - monto
 
 doc_types:
   embargo:

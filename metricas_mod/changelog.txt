@@ -1,3 +1,45 @@
+v 1.10
+- Incorporacion de `resumen_amplio_por_modelo.csv`, una vista ejecutiva independiente para el universo total.
+- La tabla calcula `detectadas_amplias`, `extras_reales`, `no_encontradas_reales`, `candidatas_revision`, `precision_amplia`, `recall_amplio` y `f1_amplio` sin modificar metricas oficiales existentes.
+- `detectadas_amplias` suma detecciones oficiales y detecciones diagnosticas confiables (`detectada_adicional_alta` y `detectada_adicional_media`) deduplicadas por entidad gold.
+- `candidatas_revision` no cuenta como acierto y `extra_fragmento` queda fuera de los falsos positivos amplios.
+- El dashboard HTML/PDF agrega la seccion "Resumen amplio por modelo".
+- Incorporacion de tests para TP/FP/FN amplios, deduplicacion por gold, candidatas, extra_fragmento y preservacion de metricas existentes.
+
+v 1.9
+- Mejora de la normalizacion numerica compartida para `dni`, `cuit_cuil`, `cbu`, `cvu` y `monto`, reconociendo variantes OCR/formato como `D.N.I.`, `C.U.I.T.`, `Nº`, `N°`, dos puntos, puntos, guiones y espacios.
+- La normalizacion sigue siendo especifica por etiqueta y conservadora: valores ambiguos con identificadores incompatibles no se concatenan ni se fuerzan como equivalentes.
+- El diagnostico amplio reutiliza `normalize_value()` para pares `no_encontrada` + `extra` numericos del mismo modelo, documento y etiqueta; si ambos normalizados validos son identicos, clasifica `detectada_adicional_alta`.
+- No se agregan categorias ni columnas diagnosticas nuevas y no se usa RapidFuzz para aceptar valores numericos diferentes.
+- Incorporacion de tests para variantes OCR de identificadores, montos, ambiguedad, diagnostico numerico por igualdad normalizada, rechazo de digitos diferentes y no alteracion de personas/metrica oficial.
+
+v 1.8
+- Correccion de la distribucion de conteos por scope en las tablas por modelo: los resultados asociados a gold (`exacta_span`, `exacta_valor`, `parcial`, `no_encontrada`, `etiqueta_incorrecta`) ahora se asignan por scope del gold.
+- `extra` y `duplicada` se mantienen asignadas por scope de la prediccion cuando no hay entidad gold asociada.
+- La cobertura de cada scope ahora se puede reconstruir directamente como `(exactas + parcial + etiqueta_incorrecta) / total_entidades_gold` usando las columnas visibles de la misma tabla.
+- Precision, recall y F1 no cambian; solo cambia la distribucion visible de conteos entre principal y opcional.
+- Incorporacion de tests cruzados para etiqueta incorrecta principal/opcional, extras por scope, consistencia principal + opcional = total y reconstruccion de cobertura.
+
+v 1.7
+- Incorporacion de dos vistas complementarias por modelo: `metricas_por_modelo_opcionales.csv` para etiquetas opcionales y `metricas_por_modelo_total.csv` para principales + opcionales.
+- El dashboard HTML/PDF agrega las tablas "Metricas opcionales por modelo" y "Metricas totales por modelo" debajo del ranking principal, sin reemplazar ni modificar `metricas_por_modelo.csv`.
+- Las nuevas vistas reutilizan la misma logica de precision, recall, F1 y cobertura, cambiando solamente el universo evaluado.
+- Incorporacion de tests para validar independencia por modelo, consistencia de universos y no alteracion de las metricas principales existentes.
+
+v 1.6
+- Mejora de la normalizacion previa de `dni`, `cuit_cuil`, `cbu`, `cvu` y `monto` sin modificar la logica de matching por tiers ni su orden.
+- Los identificadores ahora aceptan prefijos de etiqueta y separadores comunes cuando queda un unico candidato compatible con la etiqueta evaluada.
+- Los valores ambiguos con varios identificadores no se concatenan ni se fuerzan como equivalentes.
+- Los montos aceptan variantes con `$`, `ARS`, espacios y separadores argentinos conservando decimales.
+- Incorporacion de tests para prefijos, separadores, montos, ambiguedad, preservacion de valores originales e invariantes.
+
+v 1.5
+- Endurecimiento del Tier 5 (`overlap_span`): el solapamiento fisico de spans ya no alcanza por si solo; ahora debe superar `min_span_overlap_ratio` y ademas cumplir al menos una senal textual configurable por RapidFuzz.
+- Incorporacion de los parametros `tier5_token_set_threshold` y `tier5_partial_ratio_threshold` en `config.yaml` y en `MatchConfig`.
+- Correccion de la lectura efectiva de `min_span_overlap_ratio` desde `config.yaml` en `run_evaluacion.py`; el flujo de configuracion ahora llega explicitamente a `matching.py`.
+- Endurecimiento de `extra_fragmento`: una prediccion sobrante con overlap solo se clasifica como fragmento si tambien tiene relacion textual suficiente con la entidad gold relacionada.
+- Incorporacion de tests para rechazar overlaps sin evidencia textual, validar fragmentos reales, verificar cambios de YAML y sostener invariantes.
+
 v 1.4
 - Corrección del conteo inflado de entidades gold: las predicciones `extra_fragmento` ahora dejan `gold_id` vacío y registran la referencia a la entidad en `gold_id_relacionado`, evitando duplicar el conteo de entidades gold reales.
 - Incorporación de la columna `extra_fragmento` en las tablas de resumen diagnóstico (`resumen_detecciones_diagnosticas_*`) y actualización de la invariante de extras (`extras_oficiales == extras_asociables + extras_reales + extra_fragmento`).

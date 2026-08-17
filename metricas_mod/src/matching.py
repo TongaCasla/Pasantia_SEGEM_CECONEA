@@ -6,7 +6,7 @@ from typing import Any
 import pandas as pd
 from rapidfuzz import fuzz
 
-from normalization import clean_text, normalize_value, values_equivalent
+from normalization import clean_text, normalize_text_value, normalize_value, values_equivalent
 
 
 @dataclass(frozen=True)
@@ -17,6 +17,8 @@ class MatchConfig:
     optional_labels: set[str]
     fuzzy_labels: set[str]
     min_span_overlap_ratio: float = 0.30
+    tier5_token_set_threshold: int = 60
+    tier5_partial_ratio_threshold: int = 70
 
 
 def _to_int(value: Any) -> int | None:
@@ -116,6 +118,18 @@ def _is_partial(gold: dict[str, Any], pred: dict[str, Any], cfg: MatchConfig) ->
         return False, 0
     score = fuzz.token_sort_ratio(left, right)
     return score >= cfg.threshold, score
+
+
+def _tier5_textual_evidence(gold: dict[str, Any], pred: dict[str, Any], cfg: MatchConfig) -> tuple[bool, float]:
+    gold_value = clean_text(gold["valor"]).casefold()
+    pred_value = clean_text(pred["valor"]).casefold()
+    token_set = float(fuzz.token_set_ratio(gold_value, pred_value))
+    partial = float(fuzz.partial_ratio(gold_value, pred_value))
+    return (
+        token_set >= cfg.tier5_token_set_threshold
+        or partial >= cfg.tier5_partial_ratio_threshold,
+        max(token_set, partial),
+    )
 
 
 def mark_duplicates(predictions: pd.DataFrame, cfg: MatchConfig) -> tuple[pd.DataFrame, list[dict[str, Any]]]:
@@ -289,7 +303,7 @@ def compare_model(gold: pd.DataFrame, predictions: pd.DataFrame, cfg: MatchConfi
                 used_preds.add(p_idx)
 
         # Tier 5 (overlap_span)
-        # Match remaining entities with same label based on physical span overlap
+        # Match remaining entities with same label, sufficient span overlap and textual evidence.
         pass5_pairs = []
         for g_idx, gold_row in enumerate(gold_doc):
             if gold_matches[g_idx] is not None:
@@ -311,8 +325,8 @@ def compare_model(gold: pd.DataFrame, predictions: pd.DataFrame, cfg: MatchConfi
                     continue
                 overlap_amount = max(0, min(g_span[1], p_span[1]) - max(g_span[0], p_span[0]))
                 overlap_ratio = overlap_amount / gold_len
-                if overlap_ratio >= cfg.min_span_overlap_ratio:
-                    score = float(fuzz.token_set_ratio(gold_row["valor"], pred_row["valor"]))
+                has_textual_evidence, score = _tier5_textual_evidence(gold_row, pred_row, cfg)
+                if overlap_ratio >= cfg.min_span_overlap_ratio and has_textual_evidence:
                     key = (0, -overlap_amount, -int(score), g_idx, p_idx)
                     pass5_pairs.append((key, g_idx, p_idx, score))
 
@@ -338,7 +352,12 @@ def compare_model(gold: pd.DataFrame, predictions: pd.DataFrame, cfg: MatchConfi
                 for g_idx, match in enumerate(gold_matches):
                     if match is not None:
                         gold_row = gold_doc[g_idx]
-                        if gold_row["etiqueta"] == pred_row["etiqueta"] and _overlap(gold_row, pred_row):
+                        has_textual_evidence, _ = _tier5_textual_evidence(gold_row, pred_row, cfg)
+                        if (
+                            gold_row["etiqueta"] == pred_row["etiqueta"]
+                            and _overlap(gold_row, pred_row)
+                            and has_textual_evidence
+                        ):
                             fragment_of_gold = gold_row
                             break
                 if fragment_of_gold:
@@ -358,3 +377,76 @@ def compare_model(gold: pd.DataFrame, predictions: pd.DataFrame, cfg: MatchConfi
                     details.append(_detail(doc, model_name, "extra", cfg, None, pred_row))
 
     return pd.DataFrame(details)
+
+def recover_by_ocr_corregido(
+    detail: pd.DataFrame,
+    gold: pd.DataFrame,
+    recovery_labels: set[str],
+    diagnostic_detail: pd.DataFrame | None = None,
+) -> pd.DataFrame:
+    """Post-proceso: recupera entidades 'no_encontrada' cuyo ocr_corregido
+    coincide con el de alguna entidad encontrada en el mismo documento.
+    
+    Si se provee `diagnostic_detail`, opera ÚNICAMENTE sobre las entidades que
+    el diagnóstico clasificó como 'no_encontrada_sin_candidato'.
+    
+    Retorna una copia del detail con tipo_resultado cambiado a 'recuperada_ocr'
+    para las entidades recuperadas. Solo aplica a las etiquetas indicadas.
+    
+    NO modifica las métricas existentes — esta función se usa para generar
+    una tabla de métricas alternativa.
+    """
+    if "ocr_corregido" not in gold.columns or gold["ocr_corregido"].eq("").all() or not recovery_labels:
+        return detail.copy()
+        
+    result = detail.copy()
+    found_types = {"exacta_span", "exacta_valor", "parcial", "etiqueta_incorrecta"}
+    
+    sin_candidato_keys: set[tuple[str, str]] | None = None
+    if diagnostic_detail is not None and not diagnostic_detail.empty and "tipo_diagnostico" in diagnostic_detail.columns:
+        sin_cand_df = diagnostic_detail[diagnostic_detail["tipo_diagnostico"] == "no_encontrada_sin_candidato"]
+        sin_candidato_keys = set(
+            zip(
+                sin_cand_df["modelo"].astype(str),
+                sin_cand_df["gold_id"].astype(str),
+            )
+        )
+    
+    for doc in result["documento"].unique():
+        doc_mask = result["documento"] == doc
+        doc_rows = result[doc_mask]
+        
+        found_gold_ids = set(
+            doc_rows.loc[doc_rows["tipo_resultado"].isin(found_types), "gold_id"]
+        ) - {""}
+        
+        if not found_gold_ids:
+            continue
+            
+        found_ocr = set()
+        for gid in found_gold_ids:
+            gold_row = gold[gold["entidad_id"] == gid]
+            if not gold_row.empty:
+                ocr = gold_row.iloc[0].get("ocr_corregido", "")
+                if ocr:
+                    found_ocr.add(normalize_text_value(ocr))
+                    
+        if not found_ocr:
+            continue
+            
+        not_found_mask = doc_mask & (result["tipo_resultado"] == "no_encontrada") & (result["etiqueta_gold"].isin(recovery_labels))
+        for idx in result[not_found_mask].index:
+            gid = result.at[idx, "gold_id"]
+            if sin_candidato_keys is not None:
+                mod_name = str(result.at[idx, "modelo"])
+                if (mod_name, str(gid)) not in sin_candidato_keys:
+                    continue
+            gold_row = gold[gold["entidad_id"] == gid]
+            if gold_row.empty:
+                continue
+            ocr = normalize_text_value(gold_row.iloc[0].get("ocr_corregido", ""))
+            if ocr and ocr in found_ocr:
+                result.at[idx, "tipo_resultado"] = "recuperada_ocr"
+                result.at[idx, "subtipo_resultado"] = "coincidencia_ocr_corregido"
+                
+    return result

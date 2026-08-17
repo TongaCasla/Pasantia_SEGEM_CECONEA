@@ -14,13 +14,15 @@ SRC = ROOT / "src"
 sys.path.insert(0, str(SRC))
 os.environ.setdefault("MPLCONFIGDIR", str(ROOT / ".matplotlib_test_cache"))
 
-from diagnostic_detection import DiagnosticConfig, diagnostic_invariants, evaluate_diagnostic_detection, summarize_diagnostic_detection
-from matching import MatchConfig, compare_model
-from metrics import metrics_by_label, metrics_by_model
-from normalization import normalize_amount, values_equivalent
+from diagnostic_detection import DiagnosticConfig, diagnostic_invariants, evaluate_diagnostic_detection, summarize_diagnostic_detection, summarize_wide_model_detection
+from config import get_doc_type_config, load_config
+from invariants import audit_invariants
+from matching import MatchConfig, compare_model, recover_by_ocr_corregido
+from metrics import RESULT_TYPES, metrics_by_label, metrics_by_model, metrics_by_model_optional, metrics_by_model_principal_scope, metrics_by_model_total, metrics_with_ocr_recovery
+from normalization import normalize_amount, normalize_value, values_equivalent
 from pdf_report import write_dashboard_pdf, verify_dashboard_pdf
 from reports import dataframe_to_html, error_summary_by_scope, write_dashboard
-from run_evaluacion import MAX_RUN_ID_LENGTH, build_run_id, unique_run_dir, unique_run_name
+from run_evaluacion import MAX_RUN_ID_LENGTH, build_match_config, build_run_id, unique_run_dir, unique_run_name
 
 
 CFG = MatchConfig(
@@ -34,41 +36,60 @@ CFG = MatchConfig(
 DIAG_CFG = DiagnosticConfig()
 
 
+def cfg_with(**overrides: object) -> MatchConfig:
+    values = {
+        "threshold": CFG.threshold,
+        "length_tolerance": CFG.length_tolerance,
+        "numeric_labels": CFG.numeric_labels,
+        "optional_labels": CFG.optional_labels,
+        "fuzzy_labels": CFG.fuzzy_labels,
+        "min_span_overlap_ratio": CFG.min_span_overlap_ratio,
+        "tier5_token_set_threshold": CFG.tier5_token_set_threshold,
+        "tier5_partial_ratio_threshold": CFG.tier5_partial_ratio_threshold,
+    }
+    values.update(overrides)
+    return MatchConfig(**values)
+
+
 def gold(rows: list[dict[str, object]]) -> pd.DataFrame:
     data = []
     for idx, row in enumerate(rows):
-        data.append(
-            {
-                "entidad_id": str(idx),
-                "documento": row.get("documento", "doc1"),
-                "etiqueta": row["etiqueta"],
-                "etiqueta_original": row["etiqueta"],
-                "valor": row["valor"],
-                "span_inicio": str(row.get("span_inicio", "")),
-                "span_fin": str(row.get("span_fin", "")),
-                "score_modelo": "",
-                "modelo": "gold",
-            }
-        )
+        row_data = {
+            "entidad_id": str(idx),
+            "documento": row.get("documento", "doc1"),
+            "etiqueta": row["etiqueta"],
+            "etiqueta_original": row["etiqueta"],
+            "valor": row["valor"],
+            "span_inicio": str(row.get("span_inicio", "")),
+            "span_fin": str(row.get("span_fin", "")),
+            "score_modelo": "",
+            "modelo": "gold",
+        }
+        if "ocr_corregido" in row:
+            row_data["ocr_corregido"] = row["ocr_corregido"]
+        if "gold_incluida_principal" in row:
+            row_data["gold_incluida_principal"] = row["gold_incluida_principal"]
+        data.append(row_data)
     return pd.DataFrame(data)
 
 
 def preds(model: str, rows: list[dict[str, object]]) -> pd.DataFrame:
     data = []
     for idx, row in enumerate(rows):
-        data.append(
-            {
-                "entidad_id": f"{model}_{idx}",
-                "documento": row.get("documento", "doc1"),
-                "etiqueta": row["etiqueta"],
-                "etiqueta_original": row.get("etiqueta_original", row["etiqueta"]),
-                "valor": row["valor"],
-                "span_inicio": str(row.get("span_inicio", "")),
-                "span_fin": str(row.get("span_fin", "")),
-                "score_modelo": str(row.get("score_modelo", "")),
-                "modelo": model,
-            }
-        )
+        row_data = {
+            "entidad_id": f"{model}_{idx}",
+            "documento": row.get("documento", "doc1"),
+            "etiqueta": row["etiqueta"],
+            "etiqueta_original": row.get("etiqueta_original", row["etiqueta"]),
+            "valor": row["valor"],
+            "span_inicio": str(row.get("span_inicio", "")),
+            "span_fin": str(row.get("span_fin", "")),
+            "score_modelo": str(row.get("score_modelo", "")),
+            "modelo": model,
+        }
+        if "pred_incluida_principal" in row:
+            row_data["pred_incluida_principal"] = row["pred_incluida_principal"]
+        data.append(row_data)
     columns = [
         "entidad_id",
         "documento",
@@ -81,6 +102,63 @@ def preds(model: str, rows: list[dict[str, object]]) -> pd.DataFrame:
         "modelo",
     ]
     return pd.DataFrame(data, columns=columns)
+
+
+def diagnostic_pair_detail(label: str, gold_value: str, pred_value: str, model: str = "m") -> pd.DataFrame:
+    return pd.DataFrame(
+        [
+            {
+                "documento": "doc1",
+                "modelo": model,
+                "gold_id": "0",
+                "pred_id": "",
+                "etiqueta_gold": label,
+                "valor_gold": gold_value,
+                "etiqueta_predicha": "",
+                "valor_predicho": "",
+                "score_modelo": "",
+                "score_rapidfuzz": "",
+                "metodo_matching": "no_encontrada",
+                "span_inicio_gold": "",
+                "span_fin_gold": "",
+                "span_inicio_predicho": "",
+                "span_fin_predicho": "",
+                "tipo_resultado": "no_encontrada",
+                "subtipo_resultado": "",
+                "gold_id_relacionado": "",
+                "gold_opcional": False,
+                "pred_opcional": False,
+                "gold_incluida_principal": True,
+                "pred_incluida_principal": False,
+                "etiqueta_opcional": False,
+            },
+            {
+                "documento": "doc1",
+                "modelo": model,
+                "gold_id": "",
+                "pred_id": f"{model}_0",
+                "etiqueta_gold": "",
+                "valor_gold": "",
+                "etiqueta_predicha": label,
+                "valor_predicho": pred_value,
+                "score_modelo": "",
+                "score_rapidfuzz": "",
+                "metodo_matching": "extra",
+                "span_inicio_gold": "",
+                "span_fin_gold": "",
+                "span_inicio_predicho": "",
+                "span_fin_predicho": "",
+                "tipo_resultado": "extra",
+                "subtipo_resultado": "",
+                "gold_id_relacionado": "",
+                "gold_opcional": False,
+                "pred_opcional": False,
+                "gold_incluida_principal": False,
+                "pred_incluida_principal": True,
+                "etiqueta_opcional": False,
+            },
+        ]
+    )
 
 
 class MetricLogicTests(unittest.TestCase):
@@ -151,6 +229,12 @@ class MetricLogicTests(unittest.TestCase):
         self.assertEqual(normalize_amount("$ 170.000"), "170000")
         self.assertEqual(normalize_amount("108.332,50"), "108332.5")
         self.assertEqual(normalize_amount("1.500.000"), "1500000")
+        self.assertEqual(normalize_amount("ARS 1.500.000"), "1500000")
+        self.assertEqual(normalize_amount("1 500 000"), "1500000")
+        self.assertEqual(normalize_amount("ARS 1.500.000,50"), "1500000.5")
+        self.assertEqual(normalize_amount("$438.867,50"), "438867.5")
+        self.assertEqual(normalize_amount("438 867"), "438867")
+        self.assertEqual(normalize_amount("Pesos 438.867"), "438867")
 
     def test_invalid_amounts_are_empty(self) -> None:
         self.assertEqual(normalize_amount("AITOR hope"), "")
@@ -159,6 +243,68 @@ class MetricLogicTests(unittest.TestCase):
 
     def test_empty_normalizations_are_never_equivalent(self) -> None:
         self.assertFalse(values_equivalent("monto", "AITOR hope", "30-70308853-4", CFG.numeric_labels))
+
+    def test_dni_prefix_and_separators_are_equivalent(self) -> None:
+        self.assertEqual(normalize_value("dni", "DNI 17.196.196", CFG.numeric_labels), "17196196")
+        self.assertEqual(normalize_value("dni", "DNI Nº 17.196.196", CFG.numeric_labels), "17196196")
+        self.assertEqual(normalize_value("dni", "DNI N° 17.196.196", CFG.numeric_labels), "17196196")
+        self.assertEqual(normalize_value("dni", "D.N.I. 17.196.196", CFG.numeric_labels), "17196196")
+        self.assertEqual(normalize_value("dni", "D.N.I Nº: 17 196 196", CFG.numeric_labels), "17196196")
+        self.assertTrue(values_equivalent("dni", "17.196.196", "DNI: 17 196 196", CFG.numeric_labels))
+        self.assertTrue(values_equivalent("dni", "17.196.196", "17-196-196", CFG.numeric_labels))
+
+    def test_dni_one_digit_difference_is_still_different(self) -> None:
+        self.assertFalse(values_equivalent("dni", "17.196.196", "DNI 17.196.198", CFG.numeric_labels))
+
+    def test_cuit_cuil_prefixes_and_separators_are_equivalent(self) -> None:
+        self.assertEqual(normalize_value("cuit_cuil", "CUIL 27-29231660-2", CFG.numeric_labels), "27292316602")
+        self.assertEqual(normalize_value("cuit_cuil", "CUIT Nº 30-70308853-4", CFG.numeric_labels), "30703088534")
+        self.assertEqual(normalize_value("cuit_cuil", "C.U.I.T. 30 70308853 4", CFG.numeric_labels), "30703088534")
+        self.assertTrue(values_equivalent("cuit_cuil", "27-29231660-2", "CUIT: 27 29231660 2", CFG.numeric_labels))
+
+    def test_cbu_and_cvu_prefixes_and_separators_are_equivalent(self) -> None:
+        cbu = "0140025027713653768085"
+        cvu = "0000003100012345678901"
+        self.assertEqual(normalize_value("cbu", f"CBU Nº: {cbu[:4]}.{cbu[4:8]}-{cbu[8:]}", CFG.numeric_labels), cbu)
+        self.assertEqual(normalize_value("cvu", f"C.V.U. N° {cvu[:4]} {cvu[4:8]} {cvu[8:]}", CFG.numeric_labels), cvu)
+        self.assertTrue(values_equivalent("cbu", cbu, "CBU 0140-0250-27713653768085", CFG.numeric_labels))
+        self.assertTrue(values_equivalent("cvu", cvu, "CVU 0000-0031-00012345678901", CFG.numeric_labels))
+
+    def test_mixed_identifiers_are_ambiguous_not_concatenated(self) -> None:
+        mixed = "DNI 20.258.157 / CUIL 23-20258157-9"
+        self.assertEqual(normalize_value("dni", mixed, CFG.numeric_labels), "")
+        self.assertEqual(normalize_value("cuit_cuil", mixed, CFG.numeric_labels), "")
+        self.assertFalse(values_equivalent("dni", "20.258.157", mixed, CFG.numeric_labels))
+        self.assertFalse(values_equivalent("cuit_cuil", "23-20258157-9", mixed, CFG.numeric_labels))
+
+    def test_multiple_identifiers_do_not_concatenate_digits(self) -> None:
+        self.assertEqual(normalize_value("dni", "DNI 12.345.678 DNI 87.654.321", CFG.numeric_labels), "")
+
+    def test_original_values_are_preserved_in_matching_reports(self) -> None:
+        g = gold([{"etiqueta": "dni", "valor": "17.196.196", "span_inicio": 10, "span_fin": 20}])
+        p = preds("m", [{"etiqueta": "dni", "valor": "DNI 17.196.196", "span_inicio": 10, "span_fin": 20}])
+        detail = compare_model(g, p, CFG, "m")
+        row = detail.iloc[0]
+        self.assertEqual(row["tipo_resultado"], "exacta_span")
+        self.assertEqual(row["valor_gold"], "17.196.196")
+        self.assertEqual(row["valor_predicho"], "DNI 17.196.196")
+
+    def test_normalization_enters_existing_exact_value_tiers(self) -> None:
+        g = gold([{"etiqueta": "dni", "valor": "17.196.196", "span_inicio": 10, "span_fin": 20}])
+        exact_span = compare_model(
+            g,
+            preds("m", [{"etiqueta": "dni", "valor": "DNI 17.196.196", "span_inicio": 10, "span_fin": 20}]),
+            CFG,
+            "m",
+        )
+        exact_value = compare_model(
+            g,
+            preds("m", [{"etiqueta": "dni", "valor": "DNI 17.196.196", "span_inicio": 30, "span_fin": 45}]),
+            CFG,
+            "m",
+        )
+        self.assertEqual(exact_span.iloc[0]["tipo_resultado"], "exacta_span")
+        self.assertEqual(exact_value.iloc[0]["tipo_resultado"], "exacta_valor")
 
     def test_required_gold_with_optional_prediction_does_not_disappear(self) -> None:
         g = gold([{"etiqueta": "persona", "valor": "Juan Perez"}])
@@ -300,6 +446,103 @@ class MetricLogicTests(unittest.TestCase):
         self.assertEqual(metrics.iloc[0]["total_entidades_gold"], 1)
         self.assertEqual(metrics.iloc[0]["f1_estricto"], 1.0)
 
+    def test_model_metrics_main_optional_and_total_scopes(self) -> None:
+        g = gold(
+            [
+                {"etiqueta": "persona", "valor": "Juan Perez"},
+                {"etiqueta": "alias", "valor": "JP"},
+            ]
+        )
+        p = preds(
+            "m",
+            [
+                {"etiqueta": "persona", "valor": "Juan Perez"},
+                {"etiqueta": "alias", "valor": "JP"},
+            ],
+        )
+        detail = compare_model(g, p, CFG, "m")
+
+        main_before = metrics_by_model(detail)
+        optional = metrics_by_model_optional(detail)
+        total = metrics_by_model_total(detail)
+        main_after = metrics_by_model(detail)
+
+        self.assertEqual(main_before.to_dict("records"), main_after.to_dict("records"))
+        self.assertEqual(main_before.iloc[0]["total_entidades_gold"], 1)
+        self.assertEqual(main_before.iloc[0]["total_entidades_predichas"], 1)
+        self.assertEqual(optional.iloc[0]["total_entidades_gold"], 1)
+        self.assertEqual(optional.iloc[0]["total_entidades_predichas"], 1)
+        self.assertEqual(total.iloc[0]["total_entidades_gold"], 2)
+        self.assertEqual(total.iloc[0]["total_entidades_predichas"], 2)
+        self.assertEqual(total.iloc[0]["total_entidades_gold"], main_before.iloc[0]["total_entidades_gold"] + optional.iloc[0]["total_entidades_gold"])
+        self.assertEqual(total.iloc[0]["total_entidades_predichas"], main_before.iloc[0]["total_entidades_predichas"] + optional.iloc[0]["total_entidades_predichas"])
+
+    def test_model_metrics_scopes_are_independent_per_model(self) -> None:
+        g = gold(
+            [
+                {"etiqueta": "persona", "valor": "Juan Perez"},
+                {"etiqueta": "alias", "valor": "JP"},
+            ]
+        )
+        d1 = compare_model(
+            g,
+            preds("a", [{"etiqueta": "persona", "valor": "Juan Perez"}, {"etiqueta": "alias", "valor": "JP"}]),
+            CFG,
+            "a",
+        )
+        d2 = compare_model(g, preds("b", [{"etiqueta": "alias", "valor": "JP"}]), CFG, "b")
+        detail = pd.concat([d1, d2], ignore_index=True)
+
+        main = metrics_by_model(detail).set_index("modelo")
+        optional = metrics_by_model_optional(detail).set_index("modelo")
+        total = metrics_by_model_total(detail).set_index("modelo")
+
+        self.assertEqual(main.loc["a", "exactas"], 1)
+        self.assertEqual(main.loc["b", "no_encontrada"], 1)
+        self.assertEqual(optional.loc["a", "exactas"], 1)
+        self.assertEqual(optional.loc["b", "exactas"], 1)
+        self.assertEqual(total.loc["a", "exactas"], 2)
+        self.assertEqual(total.loc["b", "exactas"], 1)
+
+    def test_wrong_label_counts_follow_gold_scope_and_extras_follow_prediction_scope(self) -> None:
+        g = gold(
+            [
+                {"etiqueta": "persona", "valor": "VALOR PRINCIPAL"},
+                {"etiqueta": "alias", "valor": "VALOR OPCIONAL"},
+            ]
+        )
+        p = preds(
+            "m",
+            [
+                {"etiqueta": "alias", "valor": "VALOR PRINCIPAL"},
+                {"etiqueta": "persona", "valor": "VALOR OPCIONAL"},
+                {"etiqueta": "persona", "valor": "EXTRA PRINCIPAL"},
+                {"etiqueta": "alias", "valor": "EXTRA OPCIONAL"},
+            ],
+        )
+        detail = compare_model(g, p, CFG, "m")
+
+        principal = metrics_by_model_principal_scope(detail).iloc[0]
+        optional = metrics_by_model_optional(detail).iloc[0]
+        total = metrics_by_model_total(detail).iloc[0]
+        legacy_principal = metrics_by_model(detail).iloc[0]
+
+        self.assertEqual(principal["etiqueta_incorrecta"], 1)
+        self.assertEqual(optional["etiqueta_incorrecta"], 1)
+        self.assertEqual(principal["extra"], 1)
+        self.assertEqual(optional["extra"], 1)
+        self.assertEqual(total["etiqueta_incorrecta"], 2)
+        self.assertEqual(total["extra"], 2)
+        for result_type in RESULT_TYPES:
+            self.assertEqual(total[result_type], principal[result_type] + optional[result_type])
+        self.assertEqual(total["total_entidades_gold"], principal["total_entidades_gold"] + optional["total_entidades_gold"])
+        self.assertEqual(total["total_entidades_predichas"], principal["total_entidades_predichas"] + optional["total_entidades_predichas"])
+        for row in [principal, optional, total]:
+            expected = round((row["exactas"] + row["parcial"] + row["etiqueta_incorrecta"]) / row["total_entidades_gold"], 4)
+            self.assertEqual(row["cobertura"], expected)
+        for column in ["precision_estricta", "recall_estricto", "f1_estricto", "precision_relajada", "recall_relajado", "f1_relajado"]:
+            self.assertEqual(principal[column], legacy_principal[column])
+
     def test_each_gold_and_prediction_classified_once(self) -> None:
         g = gold([{"etiqueta": "persona", "valor": "Juan Perez"}])
         p = preds("m", [{"etiqueta": "persona", "valor": "Juan Perez"}, {"etiqueta": "persona", "valor": "Maria Gomez"}])
@@ -330,6 +573,42 @@ class MetricLogicTests(unittest.TestCase):
             before[["precision_relajada", "recall_relajado", "f1_relajado"]].to_dict("records"),
             after[["precision_relajada", "recall_relajado", "f1_relajado"]].to_dict("records"),
         )
+
+    def test_wide_model_summary_counts_reliable_detection_once(self) -> None:
+        detail = pd.DataFrame(
+            [
+                {"documento": "doc1", "modelo": "m", "gold_id": "g0", "pred_id": "p0", "tipo_resultado": "exacta_span", "subtipo_resultado": ""},
+                {"documento": "doc1", "modelo": "m", "gold_id": "g1", "pred_id": "p1", "tipo_resultado": "exacta_valor", "subtipo_resultado": ""},
+                {"documento": "doc1", "modelo": "m", "gold_id": "g2", "pred_id": "p2", "tipo_resultado": "parcial", "subtipo_resultado": ""},
+                {"documento": "doc1", "modelo": "m", "gold_id": "g3", "pred_id": "", "tipo_resultado": "no_encontrada", "subtipo_resultado": ""},
+                {"documento": "doc1", "modelo": "m", "gold_id": "g4", "pred_id": "", "tipo_resultado": "no_encontrada", "subtipo_resultado": ""},
+                {"documento": "doc1", "modelo": "m", "gold_id": "g5", "pred_id": "", "tipo_resultado": "no_encontrada", "subtipo_resultado": ""},
+                {"documento": "doc1", "modelo": "m", "gold_id": "g6", "pred_id": "", "tipo_resultado": "no_encontrada", "subtipo_resultado": ""},
+                {"documento": "doc1", "modelo": "m", "gold_id": "", "pred_id": "p7", "tipo_resultado": "extra", "subtipo_resultado": ""},
+                {"documento": "doc1", "modelo": "m", "gold_id": "", "pred_id": "p8", "tipo_resultado": "extra", "subtipo_resultado": "extra_fragmento"},
+            ]
+        )
+        diagnostics = pd.DataFrame(
+            [
+                {"documento": "doc1", "modelo": "m", "gold_id": "g3", "pred_id": "p3", "tipo_diagnostico": "detectada_adicional_alta"},
+                {"documento": "doc1", "modelo": "m", "gold_id": "g3", "pred_id": "p9", "tipo_diagnostico": "detectada_adicional_alta"},
+                {"documento": "doc1", "modelo": "m", "gold_id": "g4", "pred_id": "p4", "tipo_diagnostico": "detectada_adicional_media"},
+                {"documento": "doc1", "modelo": "m", "gold_id": "g5", "pred_id": "p5", "tipo_diagnostico": "candidata_revision"},
+                {"documento": "doc1", "modelo": "m", "gold_id": "g6", "pred_id": "", "tipo_diagnostico": "no_encontrada_sin_candidato"},
+                {"documento": "doc1", "modelo": "m", "gold_id": "", "pred_id": "p7", "tipo_diagnostico": "extra_real"},
+            ]
+        )
+        before = detail.copy(deep=True)
+        summary = summarize_wide_model_detection(detail, diagnostics).iloc[0]
+
+        self.assertEqual(summary["detectadas_amplias"], 5)
+        self.assertEqual(summary["extras_reales"], 1)
+        self.assertEqual(summary["no_encontradas_reales"], 1)
+        self.assertEqual(summary["candidatas_revision"], 1)
+        self.assertEqual(summary["precision_amplia"], 0.8333)
+        self.assertEqual(summary["recall_amplio"], 0.8333)
+        self.assertEqual(summary["f1_amplio"], 0.8333)
+        pd.testing.assert_frame_equal(detail, before)
 
     def test_diagnostic_prediction_cannot_match_two_gold(self) -> None:
         detail = compare_model(
@@ -413,6 +692,26 @@ class MetricLogicTests(unittest.TestCase):
         diagnostics = evaluate_diagnostic_detection(detail, DIAG_CFG)
         self.assertEqual(set(diagnostics["tipo_diagnostico"]), {"no_encontrada_sin_candidato", "extra_real"})
 
+    def test_numeric_diagnostic_uses_shared_normalization_for_high_confidence(self) -> None:
+        detail = diagnostic_pair_detail("dni", "17.196.196", "D.N.I Nº 17 196 196")
+        diagnostics = evaluate_diagnostic_detection(detail, DIAG_CFG)
+        row = diagnostics[diagnostics["tipo_diagnostico"] == "detectada_adicional_alta"].iloc[0]
+        self.assertEqual(row["identificador_normalizado_gold"], "17196196")
+        self.assertEqual(row["identificador_normalizado_predicho"], "17196196")
+        self.assertEqual(row["regla_principal"], "identificador_normalizado_exacto")
+
+    def test_numeric_diagnostic_rejects_different_digits(self) -> None:
+        detail = diagnostic_pair_detail("dni", "17.196.196", "D.N.I Nº 17 196 198")
+        diagnostics = evaluate_diagnostic_detection(detail, DIAG_CFG)
+        self.assertEqual(set(diagnostics["tipo_diagnostico"]), {"no_encontrada_sin_candidato", "extra_real"})
+
+    def test_amount_diagnostic_uses_shared_normalization_for_high_confidence(self) -> None:
+        detail = diagnostic_pair_detail("monto", "$ 438.867", "Pesos 438 867")
+        diagnostics = evaluate_diagnostic_detection(detail, DIAG_CFG)
+        row = diagnostics[diagnostics["tipo_diagnostico"] == "detectada_adicional_alta"].iloc[0]
+        self.assertEqual(row["identificador_normalizado_gold"], "438867")
+        self.assertEqual(row["identificador_normalizado_predicho"], "438867")
+
     def test_title_difference_can_generate_detectada_adicional(self) -> None:
         detail = compare_model(
             gold([{"etiqueta": "persona", "valor": "Dra. Maria Soledad Perez"}]),
@@ -476,10 +775,9 @@ class MetricLogicTests(unittest.TestCase):
             CFG,
             "m",
         )
+        self.assertEqual(detail.iloc[0]["tipo_resultado"], "exacta_valor")
         diagnostics = evaluate_diagnostic_detection(detail, DIAG_CFG)
-        row = diagnostics[diagnostics["tipo_diagnostico"] == "detectada_adicional_alta"].iloc[0]
-        self.assertEqual(row["identificador_normalizado_gold"], "17196196")
-        self.assertEqual(row["identificador_normalizado_predicho"], "17196196")
+        self.assertTrue(diagnostics.empty)
 
     def test_dni_with_one_different_digit_is_not_diagnostic_match(self) -> None:
         detail = compare_model(
@@ -499,9 +797,9 @@ class MetricLogicTests(unittest.TestCase):
             CFG,
             "m",
         )
+        self.assertEqual(detail.iloc[0]["tipo_resultado"], "exacta_valor")
         diagnostics = evaluate_diagnostic_detection(detail, DIAG_CFG)
-        row = diagnostics[diagnostics["tipo_diagnostico"] == "detectada_adicional_alta"].iloc[0]
-        self.assertEqual(row["identificador_normalizado_gold"], value)
+        self.assertTrue(diagnostics.empty)
 
     def test_completely_different_person_stays_extra_real(self) -> None:
         detail = compare_model(
@@ -620,7 +918,7 @@ class MetricLogicTests(unittest.TestCase):
         detail = pd.DataFrame(columns=["modelo", "tipo_resultado"])
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "dashboard.html"
-            write_dashboard(path, metrics, metrics, detail, [])
+            write_dashboard(path, metrics, metrics, metrics, metrics, metrics, detail, [])
             html = path.read_text(encoding="utf-8")
         self.assertIn("m20", html)
 
@@ -684,6 +982,9 @@ class MetricLogicTests(unittest.TestCase):
                     "rapidfuzz_threshold": 85,
                     "length_tolerance": 3,
                 },
+                metrics,
+                metrics,
+                metrics,
                 metrics,
                 metrics,
                 detail,
@@ -761,6 +1062,138 @@ class MetricLogicTests(unittest.TestCase):
         self.assertEqual(model2_extra["gold_id"], "")
         self.assertEqual(model2_extra["gold_id_relacionado"], "0")
 
+    def test_tier5_rejects_overlap_without_textual_evidence(self) -> None:
+        g = gold([{"etiqueta": "persona", "valor": "JUAN CARLOS PEREZ", "span_inicio": 100, "span_fin": 120}])
+        p = preds("m", [{"etiqueta": "persona", "valor": "MARIA GOMEZ", "span_inicio": 105, "span_fin": 118}])
+        detail = compare_model(g, p, CFG, "m")
+        self.assertEqual(set(detail["tipo_resultado"]), {"no_encontrada", "extra"})
+        self.assertNotIn("overlap_span", set(detail["subtipo_resultado"]))
+
+    def test_tier5_accepts_overlap_with_textual_evidence(self) -> None:
+        g = gold([{"etiqueta": "persona", "valor": "JUAN CARLOS PEREZ", "span_inicio": 100, "span_fin": 120}])
+        p = preds("m", [{"etiqueta": "persona", "valor": "CARLOS PEREZ", "span_inicio": 108, "span_fin": 120}])
+        detail = compare_model(g, p, CFG, "m")
+        row = detail.iloc[0]
+        self.assertEqual(row["tipo_resultado"], "parcial")
+        self.assertEqual(row["subtipo_resultado"], "overlap_span")
+
+    def test_extra_fragmento_requires_textual_evidence(self) -> None:
+        g = gold([{"etiqueta": "persona", "valor": "JUAN CARLOS PEREZ", "span_inicio": 100, "span_fin": 120}])
+        p = preds(
+            "m",
+            [
+                {"etiqueta": "persona", "valor": "JUAN CARLOS PEREZ", "span_inicio": 100, "span_fin": 120},
+                {"etiqueta": "persona", "valor": "MARIA GOMEZ", "span_inicio": 105, "span_fin": 118},
+            ],
+        )
+        detail = compare_model(g, p, CFG, "m")
+        extra = detail[detail["pred_id"] == "m_1"].iloc[0]
+        self.assertEqual(extra["tipo_resultado"], "extra")
+        self.assertEqual(extra["subtipo_resultado"], "")
+        self.assertEqual(extra["gold_id_relacionado"], "")
+
+    def test_extra_fragmento_keeps_related_gold_id_when_textual_evidence_exists(self) -> None:
+        g = gold([{"etiqueta": "persona", "valor": "JUAN CARLOS PEREZ", "span_inicio": 100, "span_fin": 120}])
+        p = preds(
+            "m",
+            [
+                {"etiqueta": "persona", "valor": "JUAN CARLOS PEREZ", "span_inicio": 100, "span_fin": 120},
+                {"etiqueta": "persona", "valor": "CARLOS PEREZ", "span_inicio": 108, "span_fin": 120},
+            ],
+        )
+        detail = compare_model(g, p, CFG, "m")
+        extra = detail[detail["pred_id"] == "m_1"].iloc[0]
+        self.assertEqual(extra["tipo_resultado"], "extra")
+        self.assertEqual(extra["subtipo_resultado"], "extra_fragmento")
+        self.assertEqual(extra["gold_id"], "")
+        self.assertEqual(extra["gold_id_relacionado"], "0")
+
+    def test_yaml_min_span_overlap_ratio_changes_tier5_behavior(self) -> None:
+        yaml_template = """
+matching:
+  rapidfuzz_threshold: 85
+  length_tolerance: 3
+  min_span_overlap_ratio: {min_overlap}
+  tier5_token_set_threshold: 60
+  tier5_partial_ratio_threshold: 70
+doc_types:
+  embargo:
+    optional_labels: []
+"""
+        with tempfile.TemporaryDirectory() as tmp:
+            config_path = Path(tmp) / "config.yaml"
+            config_path.write_text(yaml_template.format(min_overlap="0.60"), encoding="utf-8")
+            strict_config = load_config(config_path)
+            strict_cfg = build_match_config(strict_config, get_doc_type_config(strict_config, "embargo"))
+            config_path.write_text(yaml_template.format(min_overlap="0.50"), encoding="utf-8")
+            loose_config = load_config(config_path)
+            loose_cfg = build_match_config(loose_config, get_doc_type_config(loose_config, "embargo"))
+
+        g = gold([{"etiqueta": "persona", "valor": "JUAN CARLOS PEREZ", "span_inicio": 100, "span_fin": 120}])
+        p = preds("m", [{"etiqueta": "persona", "valor": "CARLOS PEREZ", "span_inicio": 110, "span_fin": 120}])
+        strict_detail = compare_model(g, p, strict_cfg, "m")
+        loose_detail = compare_model(g, p, loose_cfg, "m")
+        self.assertEqual(set(strict_detail["tipo_resultado"]), {"no_encontrada", "extra"})
+        self.assertEqual(loose_detail.iloc[0]["subtipo_resultado"], "overlap_span")
+
+    def test_yaml_tier5_text_thresholds_change_behavior(self) -> None:
+        yaml_template = """
+matching:
+  rapidfuzz_threshold: 85
+  length_tolerance: 3
+  min_span_overlap_ratio: 0.30
+  tier5_token_set_threshold: {token_set}
+  tier5_partial_ratio_threshold: {partial_ratio}
+doc_types:
+  embargo:
+    optional_labels: []
+"""
+        with tempfile.TemporaryDirectory() as tmp:
+            config_path = Path(tmp) / "config.yaml"
+            config_path.write_text(yaml_template.format(token_set="101", partial_ratio="101"), encoding="utf-8")
+            strict_config = load_config(config_path)
+            strict_cfg = build_match_config(strict_config, get_doc_type_config(strict_config, "embargo"))
+            config_path.write_text(yaml_template.format(token_set="60", partial_ratio="70"), encoding="utf-8")
+            loose_config = load_config(config_path)
+            loose_cfg = build_match_config(loose_config, get_doc_type_config(loose_config, "embargo"))
+
+        g = gold([{"etiqueta": "persona", "valor": "JUAN CARLOS PEREZ", "span_inicio": 100, "span_fin": 120}])
+        p = preds("m", [{"etiqueta": "persona", "valor": "CARLOS PEREZ", "span_inicio": 108, "span_fin": 120}])
+        strict_detail = compare_model(g, p, strict_cfg, "m")
+        loose_detail = compare_model(g, p, loose_cfg, "m")
+        self.assertEqual(set(strict_detail["tipo_resultado"]), {"no_encontrada", "extra"})
+        self.assertEqual(loose_detail.iloc[0]["subtipo_resultado"], "overlap_span")
+
+    def test_non_tier5_official_metrics_are_unchanged_by_new_thresholds(self) -> None:
+        g = gold([{"etiqueta": "persona", "valor": "Juan Perez"}])
+        p = preds("m", [{"etiqueta": "persona", "valor": "Juan Perez"}])
+        default_detail = compare_model(g, p, CFG, "m")
+        strict_detail = compare_model(
+            g,
+            p,
+            cfg_with(min_span_overlap_ratio=0.99, tier5_token_set_threshold=101, tier5_partial_ratio_threshold=101),
+            "m",
+        )
+        self.assertEqual(metrics_by_model(default_detail).to_dict("records"), metrics_by_model(strict_detail).to_dict("records"))
+
+    def test_tier5_and_extra_fragmento_invariants_hold(self) -> None:
+        g = gold([{"etiqueta": "persona", "valor": "JUAN CARLOS PEREZ", "span_inicio": 100, "span_fin": 120}])
+        p = preds(
+            "m",
+            [
+                {"etiqueta": "persona", "valor": "CARLOS PEREZ", "span_inicio": 108, "span_fin": 120},
+                {"etiqueta": "persona", "valor": "JUAN PEREZ", "span_inicio": 100, "span_fin": 110},
+            ],
+        )
+        detail = compare_model(g, p, CFG, "m")
+        metrics = metrics_by_model(detail)
+        invariants = audit_invariants(detail, g, p, metrics)
+        extra_fragmento = detail[detail["subtipo_resultado"] == "extra_fragmento"].iloc[0]
+        self.assertTrue(invariants["estado"].eq("ok").all())
+        self.assertEqual(metrics.iloc[0]["total_entidades_gold"], 1)
+        self.assertEqual(extra_fragmento["gold_id"], "")
+        self.assertEqual(extra_fragmento["gold_id_relacionado"], "0")
+
     def test_distant_containment_is_not_matched_in_diagnostics(self) -> None:
         g = gold([
             {"etiqueta": "persona", "valor": "Arana Van Vlimmeren Gaston Martin", "span_inicio": 190, "span_fin": 223},
@@ -776,6 +1209,118 @@ class MetricLogicTests(unittest.TestCase):
         # gold_2 (ARANA VAN VLIMMEREN at span 1232-1251) should NOT be associated with model1_0 at span 173-209 because distance > 50
         gold2_diag = diag[diag["gold_id"] == "1"].iloc[0]
         self.assertEqual(gold2_diag["tipo_diagnostico"], "no_encontrada_sin_candidato")
+
+
+class TestRecuperacionOCR(unittest.TestCase):
+    def test_recover_basic(self) -> None:
+        g = gold([
+            {"etiqueta": "persona", "valor": "Perez Juan", "ocr_corregido": "Perez Juan Jose", "span_inicio": 10, "span_fin": 20},
+            {"etiqueta": "persona", "valor": "Juan J. Perez", "ocr_corregido": "Perez Juan Jose", "span_inicio": 50, "span_fin": 63},
+        ])
+        p = preds("model", [
+            {"etiqueta": "persona", "valor": "Juan J. Perez", "span_inicio": 50, "span_fin": 63},
+        ])
+        detail = compare_model(g, p, CFG, "model")
+        self.assertEqual(detail.iloc[0]["tipo_resultado"], "no_encontrada")
+        self.assertEqual(detail.iloc[1]["tipo_resultado"], "exacta_span")
+        
+        detail_recovered = recover_by_ocr_corregido(detail, g, {"persona"})
+        self.assertEqual(detail_recovered.iloc[0]["tipo_resultado"], "recuperada_ocr")
+        self.assertEqual(detail_recovered.iloc[0]["subtipo_resultado"], "coincidencia_ocr_corregido")
+
+    def test_recover_no_ocr_column(self) -> None:
+        g = gold([
+            {"etiqueta": "persona", "valor": "Perez Juan", "span_inicio": 10, "span_fin": 20},
+            {"etiqueta": "persona", "valor": "Juan J. Perez", "span_inicio": 50, "span_fin": 63},
+        ])
+        p = preds("model", [
+            {"etiqueta": "persona", "valor": "Juan J. Perez", "span_inicio": 50, "span_fin": 63},
+        ])
+        detail = compare_model(g, p, CFG, "model")
+        detail_recovered = recover_by_ocr_corregido(detail, g, {"persona"})
+        self.assertEqual(detail_recovered.iloc[0]["tipo_resultado"], "no_encontrada")
+
+    def test_recover_different_document(self) -> None:
+        g = pd.DataFrame([
+            {"documento": "doc1", "entidad_id": "0", "etiqueta": "persona", "valor": "Perez Juan", "ocr_corregido": "Perez Juan Jose"},
+            {"documento": "doc2", "entidad_id": "1", "etiqueta": "persona", "valor": "Juan J. Perez", "ocr_corregido": "Perez Juan Jose"},
+        ])
+        p = pd.DataFrame([
+            {"documento": "doc2", "entidad_id": "model_0", "etiqueta": "persona", "valor": "Juan J. Perez"},
+        ])
+        detail = compare_model(g, p, CFG, "model")
+        detail_recovered = recover_by_ocr_corregido(detail, g, {"persona"})
+        no_encontrada = detail_recovered[detail_recovered["tipo_resultado"] == "no_encontrada"]
+        self.assertEqual(len(no_encontrada), 1)
+
+    def test_recover_label_filter(self) -> None:
+        g = gold([
+            {"etiqueta": "dni", "valor": "123", "ocr_corregido": "12345", "span_inicio": 10, "span_fin": 13},
+            {"etiqueta": "dni", "valor": "12345", "ocr_corregido": "12345", "span_inicio": 50, "span_fin": 55},
+        ])
+        p = preds("model", [
+            {"etiqueta": "dni", "valor": "12345", "span_inicio": 50, "span_fin": 55},
+        ])
+        detail = compare_model(g, p, CFG, "model")
+        detail_recovered = recover_by_ocr_corregido(detail, g, {"persona"})
+        self.assertEqual(detail_recovered.iloc[0]["tipo_resultado"], "no_encontrada")
+
+    def test_recover_metrics_recall_only(self) -> None:
+        g = gold([
+            {"etiqueta": "persona", "valor": "Perez Juan", "ocr_corregido": "Perez Juan Jose", "gold_incluida_principal": True},
+            {"etiqueta": "persona", "valor": "Juan J. Perez", "ocr_corregido": "Perez Juan Jose", "gold_incluida_principal": True},
+        ])
+        p = preds("model", [
+            {"etiqueta": "persona", "valor": "Juan J. Perez", "pred_incluida_principal": True},
+        ])
+        detail = compare_model(g, p, CFG, "model")
+        metrics_orig = metrics_by_model_principal_scope(detail)
+        
+        detail_recovered = recover_by_ocr_corregido(detail, g, {"persona"})
+        metrics_rec = metrics_with_ocr_recovery(detail_recovered)
+        
+        self.assertEqual(metrics_orig.iloc[0]["precision_relajada"], metrics_rec.iloc[0]["precision_con_recuperacion"])
+        self.assertEqual(metrics_orig.iloc[0]["recall_relajado"], 0.5)
+        self.assertEqual(metrics_rec.iloc[0]["recall_con_recuperacion"], 1.0)
+        self.assertEqual(metrics_rec.iloc[0]["recuperadas_ocr"], 1)
+
+    def test_recover_with_diagnostic_skips_associated(self) -> None:
+        g = gold([
+            {"etiqueta": "persona", "valor": "Perez Juan", "ocr_corregido": "Perez Juan Jose", "gold_incluida_principal": True},
+            {"etiqueta": "persona", "valor": "Juan J. Perez", "ocr_corregido": "Perez Juan Jose", "gold_incluida_principal": True},
+        ])
+        p = preds("model", [
+            {"etiqueta": "persona", "valor": "Juan J. Perez", "pred_incluida_principal": True},
+        ])
+        detail = compare_model(g, p, CFG, "model")
+        # Simular diagnostic_detail donde gold 0 se asoció como detectada_adicional_alta
+        diag_detail = pd.DataFrame([
+            {"documento": "doc_test", "modelo": "model", "gold_id": "0", "tipo_diagnostico": "detectada_adicional_alta"},
+            {"documento": "doc_test", "modelo": "model", "gold_id": "1", "tipo_diagnostico": "no_encontrada_sin_candidato"},
+        ])
+        
+        detail_recovered = recover_by_ocr_corregido(detail, g, {"persona"}, diagnostic_detail=diag_detail)
+        # gold 0 no fue clasificado como no_encontrada_sin_candidato, por lo que NO se recupera por OCR
+        gold0_res = detail_recovered[detail_recovered["gold_id"] == "0"].iloc[0]
+        self.assertEqual(gold0_res["tipo_resultado"], "no_encontrada")
+
+    def test_recover_with_diagnostic_recovers_sin_candidato(self) -> None:
+        g = gold([
+            {"etiqueta": "persona", "valor": "Perez Juan", "ocr_corregido": "Perez Juan Jose", "gold_incluida_principal": True},
+            {"etiqueta": "persona", "valor": "Juan J. Perez", "ocr_corregido": "Perez Juan Jose", "gold_incluida_principal": True},
+        ])
+        p = preds("model", [
+            {"etiqueta": "persona", "valor": "Juan J. Perez", "pred_incluida_principal": True},
+        ])
+        detail = compare_model(g, p, CFG, "model")
+        # Simular diagnostic_detail donde gold 0 es no_encontrada_sin_candidato
+        diag_detail = pd.DataFrame([
+            {"documento": "doc_test", "modelo": "model", "gold_id": "0", "tipo_diagnostico": "no_encontrada_sin_candidato"},
+        ])
+        
+        detail_recovered = recover_by_ocr_corregido(detail, g, {"persona"}, diagnostic_detail=diag_detail)
+        gold0_res = detail_recovered[detail_recovered["gold_id"] == "0"].iloc[0]
+        self.assertEqual(gold0_res["tipo_resultado"], "recuperada_ocr")
 
 
 if __name__ == "__main__":

@@ -90,6 +90,7 @@ def prepare_entities(df: pd.DataFrame, config: dict[str, Any], source: str, mode
     prepared["score_modelo"] = df[score_col].map(clean_text) if score_col in df.columns else ""
     prepared["span_inicio"] = df[span_start_col].map(clean_text) if span_start_col in df.columns else ""
     prepared["span_fin"] = df[span_end_col].map(clean_text) if span_end_col in df.columns else ""
+    prepared["ocr_corregido"] = df["ocr_corregido"].map(clean_text) if "ocr_corregido" in df.columns else ""
     prepared["fuente"] = source
     prepared["modelo"] = model or source
     prepared = prepared[~prepared["documento"].map(is_empty)]

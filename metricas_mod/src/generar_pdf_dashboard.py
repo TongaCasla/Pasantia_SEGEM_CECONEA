@@ -16,6 +16,12 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def read_optional_csv(path: Path) -> pd.DataFrame:
+    if not path.exists():
+        return pd.DataFrame()
+    return pd.read_csv(path, dtype=str, keep_default_na=False, encoding="utf-8-sig")
+
+
 def main() -> None:
     args = parse_args()
     run_dir = Path(args.run_dir)
@@ -27,11 +33,25 @@ def main() -> None:
     graph_files = sorted(graph_dir.glob("*.png"))
 
     metrics_model = pd.read_csv(run_dir / "metricas_por_modelo.csv", dtype=str, keep_default_na=False, encoding="utf-8-sig")
+    metrics_model_optional = read_optional_csv(run_dir / "metricas_por_modelo_opcionales.csv")
+    metrics_model_total = read_optional_csv(run_dir / "metricas_por_modelo_total.csv")
     metrics_label = pd.read_csv(run_dir / "metricas_por_etiqueta_todas.csv", dtype=str, keep_default_na=False, encoding="utf-8-sig")
+    wide_model_summary = read_optional_csv(run_dir / "resumen_amplio_por_modelo.csv")
     detail = pd.read_csv(run_dir / "detalle_comparaciones.csv", dtype=str, keep_default_na=False, encoding="utf-8-sig")
     gold_audit = pd.read_csv(run_dir / "auditoria_gold.csv", dtype=str, keep_default_na=False, encoding="utf-8-sig")
 
-    ok, message = write_dashboard_pdf(run_dir / "dashboard.pdf", metadata, metrics_model, metrics_label, detail, graph_files, gold_audit)
+    ok, message = write_dashboard_pdf(
+        run_dir / "dashboard.pdf",
+        metadata,
+        metrics_model,
+        metrics_model_optional,
+        metrics_model_total,
+        metrics_label,
+        wide_model_summary,
+        detail,
+        graph_files,
+        gold_audit,
+    )
     if not ok:
         print(f"Advertencia PDF: {message}")
         (run_dir / "pdf_status.txt").write_text(message, encoding="utf-8")

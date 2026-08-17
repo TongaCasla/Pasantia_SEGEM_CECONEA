@@ -115,8 +115,9 @@ Eso genera un nombre parecido a:
 - etiquetas opcionales;
 - etiquetas evaluadas tambien por regex;
 - etiquetas numericas o identificadores que no usan similitud difusa;
+- normalizacion por etiqueta de identificadores (`dni`, `cuit_cuil`, `cbu`, `cvu`) y montos;
 - alias de etiquetas de modelos a etiquetas canonicas del gold;
-- umbral de RapidFuzz y tolerancia de longitud;
+- umbral de RapidFuzz, tolerancia de longitud y reglas del Tier 5 por overlap de spans;
 - reglas de deteccion diagnostica amplia para revisar variantes que quedaron como `no_encontrada` y `extra`.
 
 El mapeo de etiquetas evita comparar, por ejemplo, `person` contra `persona` como si fueran etiquetas distintas. La configuracion inicial incluye:
@@ -149,7 +150,13 @@ La comparacion se realiza por documento y etiqueta. Cada prediccion se usa como 
 - `etiqueta_incorrecta`: coincide el valor, pero no la etiqueta.
 - `duplicada`: el modelo repitio la misma entidad normalizada o una equivalente.
 
-Para `dni`, `cuit_cuil`, `cbu`, `cvu` y `monto` no se usa fuzzy matching. Los identificadores se comparan sin espacios, puntos ni guiones. Los montos se comparan como valores numericos normalizados.
+Para `dni`, `cuit_cuil`, `cbu`, `cvu` y `monto` no se usa fuzzy matching. Los identificadores se normalizan segun su etiqueta antes de comparar: se aceptan prefijos como `DNI`, `CUIT`, `CUIL`, `CBU` o `CVU`, y separadores como espacios, puntos o guiones, siempre que quede un unico candidato compatible con la etiqueta. Si un valor mezcla varios identificadores o resulta ambiguo, no se fuerza una equivalencia. Los montos se comparan como valores numericos normalizados, aceptando variantes como `$`, `ARS`, espacios y separadores argentinos sin modificar el valor original mostrado en los reportes.
+
+La normalizacion numerica tambien reconoce variantes frecuentes de OCR y formato, como `D.N.I.`, `C.U.I.T.`, `C.V.U.`, `Nº`, `N°`, dos puntos, puntos, guiones y espacios internos. La misma funcion de normalizacion se reutiliza en el diagnostico amplio para etiquetas numericas (`dni`, `cuit_cuil`, `cbu`, `cvu`, `monto`): si un par oficial `no_encontrada` + `extra` del mismo modelo, documento y etiqueta tiene valores normalizados validos e identicos, se marca como `detectada_adicional_alta`. No se usa RapidFuzz para aceptar identificadores o montos numericos diferentes.
+
+El matching se resuelve en tiers. El Tier 5 (`parcial / overlap_span`) recupera entidades fragmentadas cuando hay misma etiqueta y solapamiento fisico de spans, pero el overlap por si solo no alcanza: tambien debe existir evidencia textual minima. Esa evidencia se configura en `config.yaml` con `min_span_overlap_ratio`, `tier5_token_set_threshold` y `tier5_partial_ratio_threshold`. La coincidencia por Tier 5 se acepta solo si supera el overlap minimo y al menos uno de los scores textuales configurados.
+
+`extra_fragmento` sigue contando como `extra`, no como acierto ni como nueva entidad gold. Representa una prediccion sobrante y redundante que se relaciona con una entidad gold ya detectada, por ejemplo un fragmento textual de un nombre completo. Para evitar falsos fragmentos, tambien exige misma etiqueta, overlap de span y evidencia textual suficiente; si los textos no tienen relacion, queda como `extra` normal.
 
 ## Deteccion diagnostica amplia
 
@@ -210,6 +217,8 @@ En `metricas/outputs/<tipo_documento>/<corrida>/` se generan:
 
 - `detalle_comparaciones.csv`
 - `metricas_por_modelo.csv`
+- `metricas_por_modelo_opcionales.csv`
+- `metricas_por_modelo_total.csv`
 - `metricas_por_etiqueta.csv`
 - `metricas_por_etiqueta_todas.csv`
 - `metricas_etiquetas_opcionales.csv`
@@ -233,11 +242,16 @@ En `metricas/outputs/<tipo_documento>/<corrida>/` se generan:
 - `resumen_detecciones_diagnosticas_principal.csv`
 - `resumen_detecciones_diagnosticas_opcional.csv`
 - `resumen_detecciones_diagnosticas_total.csv`
+- `resumen_amplio_por_modelo.csv`
 - `no_encontradas_con_candidato.csv`
 - `no_encontradas_sin_candidato.csv`
 - `candidatas_revision.csv`
 - `extras_asociables.csv`
 - `extras_reales.csv`
+
+`metricas_por_modelo.csv` mantiene el ranking principal historico: usa solamente las entidades principales, sin etiquetas opcionales. `metricas_por_modelo_opcionales.csv` calcula las mismas columnas agrupando solo las etiquetas opcionales configuradas para el tipo documental, como `dni`, `cuit_cuil`, `cbu`, `cvu`, `monto`, `alias` o `persona_juridica` cuando correspondan. `metricas_por_modelo_total.csv` incluye principales y opcionales para una vista global del rendimiento por modelo. Estas dos vistas nuevas son complementarias y no reemplazan el ranking principal.
+
+En las vistas por scope, los resultados asociados a una entidad gold (`exacta_span`, `exacta_valor`, `parcial`, `no_encontrada` y `etiqueta_incorrecta`) se asignan al scope del gold. Los resultados sin entidad gold (`extra` y `duplicada`) se asignan al scope de la prediccion. Asi la cobertura de cada tabla puede reconstruirse con sus columnas visibles: `(exactas + parcial + etiqueta_incorrecta) / total_entidades_gold`.
 
 `metricas_por_etiqueta.csv` respeta la evaluacion principal y excluye etiquetas opcionales. `metricas_por_etiqueta_todas.csv` incluye todas las etiquetas canonicas y es la tabla recomendada para revisar cobertura por etiqueta.
 
@@ -252,6 +266,8 @@ En `detalle_comparaciones.csv`, `score_rapidfuzz` solo se completa cuando el met
 `auditoria_invariantes.csv` verifica reglas basicas de consistencia: mismo total gold obligatorio entre modelos, cada entidad gold clasificada exactamente una vez y cada prediccion clasificada exactamente una vez.
 
 `detecciones_diagnosticas.csv` contiene la evaluacion amplia. Conserva el resultado oficial por separado y agrega datos como nivel de confianza, regla principal, cantidad de senales, identificadores normalizados, ratios de RapidFuzz, diferencia de longitud, overlap de spans, contencion textual y motivo de deteccion. Los resumenes principal, opcional y total (`resumen_detecciones_diagnosticas_*`) incluyen una columna `extra_fragmento` para contabilizar estas predicciones fragmentadas de forma transparente sin alterar la metrica oficial ni inflar el inventario gold.
+
+`resumen_amplio_por_modelo.csv` es una vista ejecutiva complementaria para el universo total. Calcula `detectadas_amplias` como entidades gold detectadas oficialmente (`exacta_span`, `exacta_valor`, `parcial`) o recuperadas por diagnostico confiable (`detectada_adicional_alta`, `detectada_adicional_media`). `candidatas_revision` queda visible pero no cuenta como acierto, `no_encontradas_reales` usa `no_encontrada_sin_candidato`, y `extras_reales` excluye `extras_asociables` y `extra_fragmento`. Sus metricas `precision_amplia`, `recall_amplio` y `f1_amplio` no reemplazan precision, recall ni F1 oficiales.
 
 El dashboard se abre localmente desde `metricas/outputs/<tipo_documento>/<corrida>/dashboard.html` y contiene explicaciones breves para las metricas y graficos.
 

@@ -17,12 +17,13 @@ from diagnostic_detection import (
     evaluate_diagnostic_detection,
     filter_diagnostics_by_scope,
     summarize_diagnostic_detection,
+    summarize_wide_model_detection,
 )
 from io_utils import build_gold_audit, choose_document_column, infer_model_name, prepare_entities, read_csv_auto, validate_spans
 from normalization import clean_text
 from invariants import audit_invariants
-from matching import MatchConfig, compare_model
-from metrics import metrics_by_label, metrics_by_model, optional_metrics
+from matching import MatchConfig, compare_model, recover_by_ocr_corregido
+from metrics import metrics_by_label, metrics_by_model_optional, metrics_by_model_principal_scope, metrics_by_model_total, optional_metrics, metrics_with_ocr_recovery, metrics_with_ocr_recovery_isolated
 from pdf_report import verify_dashboard_pdf, write_dashboard_pdf
 from plots import create_plots
 from regex_compare import compare_models_vs_regex
@@ -96,6 +97,27 @@ def unique_run_name(output_base: Path, graph_base: Path, run_id: str) -> str:
         counter += 1
 
 
+def build_match_config(
+    config: dict,
+    doc_cfg: dict,
+    rapidfuzz_threshold: int | None = None,
+    length_tolerance: int | None = None,
+) -> MatchConfig:
+    matching_cfg = config["matching"]
+    threshold = rapidfuzz_threshold or matching_cfg["rapidfuzz_threshold"]
+    tolerance = length_tolerance or matching_cfg["length_tolerance"]
+    return MatchConfig(
+        threshold=threshold,
+        length_tolerance=tolerance,
+        numeric_labels=set(matching_cfg["numeric_labels"]),
+        optional_labels=set(doc_cfg.get("optional_labels", [])),
+        fuzzy_labels=set(matching_cfg.get("fuzzy_labels", [])),
+        min_span_overlap_ratio=float(matching_cfg.get("min_span_overlap_ratio", 0.30)),
+        tier5_token_set_threshold=int(matching_cfg.get("tier5_token_set_threshold", 60)),
+        tier5_partial_ratio_threshold=int(matching_cfg.get("tier5_partial_ratio_threshold", 70)),
+    )
+
+
 def validate_run_paths(outdir: Path, graph_dir: Path) -> None:
     candidate_paths = [outdir / filename for filename in LONGEST_OUTPUT_FILENAMES]
     candidate_paths.extend(
@@ -152,10 +174,10 @@ def evaluate(args: argparse.Namespace) -> tuple[Path, Path, list[Path]]:
     if not result_paths:
         raise ValueError(f"Debe indicar --results o verificar input_paths.{doc_type}.results_glob en config.yaml")
 
-    threshold = args.rapidfuzz_threshold or config["matching"]["rapidfuzz_threshold"]
-    length_tolerance = args.length_tolerance or config["matching"]["length_tolerance"]
-    numeric_labels = set(config["matching"]["numeric_labels"])
-    fuzzy_labels = set(config["matching"].get("fuzzy_labels", []))
+    match_cfg = build_match_config(config, doc_cfg, args.rapidfuzz_threshold, args.length_tolerance)
+    threshold = match_cfg.threshold
+    length_tolerance = match_cfg.length_tolerance
+    numeric_labels = match_cfg.numeric_labels
     optional_labels = set(doc_cfg.get("optional_labels", []))
 
     run_id = build_run_id(args.run_name, result_paths, threshold, length_tolerance)
@@ -192,8 +214,6 @@ def evaluate(args: argparse.Namespace) -> tuple[Path, Path, list[Path]]:
 
     all_predictions = []
     all_details = []
-    match_cfg = MatchConfig(threshold, length_tolerance, numeric_labels, optional_labels, fuzzy_labels)
-
     for result_path in result_paths:
         model_name = infer_model_name(result_path)
         pred_raw = read_csv_auto(result_path)
@@ -212,7 +232,9 @@ def evaluate(args: argparse.Namespace) -> tuple[Path, Path, list[Path]]:
     validation_rows.extend({"tipo": "documento_solo_predicciones", "detalle": doc} for doc in sorted(docs_pred - docs_gold))
     validation = pd.DataFrame(validation_rows, columns=["tipo", "detalle"])
 
-    metrics_model = metrics_by_model(detail)
+    metrics_model = metrics_by_model_principal_scope(detail)
+    metrics_model_optional = metrics_by_model_optional(detail)
+    metrics_model_total = metrics_by_model_total(detail)
     metrics_label = metrics_by_label(detail, optional_labels=optional_labels)
     metrics_label_all = metrics_by_label(detail, include_optional=True, optional_labels=optional_labels)
     metrics_optional = optional_metrics(detail, optional_labels)
@@ -223,12 +245,29 @@ def evaluate(args: argparse.Namespace) -> tuple[Path, Path, list[Path]]:
     diagnostic_summary_principal = summarize_diagnostic_detection(detail, diagnostic_detail, metrics_model, scope="principal")
     diagnostic_summary_optional = summarize_diagnostic_detection(detail, diagnostic_detail, metrics_model, scope="opcional")
     diagnostic_summary_total = summarize_diagnostic_detection(detail, diagnostic_detail, metrics_model, scope="total")
+    wide_model_summary = summarize_wide_model_detection(detail, diagnostic_detail)
     diagnostic_principal = filter_diagnostics_by_scope(diagnostic_detail, "principal")
     diagnostic_optional = filter_diagnostics_by_scope(diagnostic_detail, "opcional")
     diagnostic_invariants_df = diagnostic_invariants(detail, diagnostic_detail)
+    
+    recuperacion_cfg = config.get("recuperacion", {})
+    metrics_recovery = pd.DataFrame()
+    metrics_recovery_isolated = pd.DataFrame()
+    if recuperacion_cfg.get("enabled", False):
+        recovery_labels = set(recuperacion_cfg.get("labels", []))
+        detail_recovered = recover_by_ocr_corregido(detail, gold, recovery_labels, diagnostic_detail=diagnostic_detail)
+        metrics_recovery = metrics_with_ocr_recovery(detail_recovered)
+        metrics_recovery_isolated = metrics_with_ocr_recovery_isolated(detail_recovered, recovery_labels)
+        write_csv(metrics_recovery, outdir / "metricas_con_recuperacion_ocr.csv", doc_to_file_num)
+        write_csv(metrics_recovery_isolated, outdir / "metricas_con_recuperacion_ocr_aislada.csv", doc_to_file_num)
+        write_csv(detail_recovered[detail_recovered["tipo_resultado"] == "recuperada_ocr"], outdir / "entidades_recuperadas_ocr.csv", doc_to_file_num)
+        write_csv(detail_recovered[detail_recovered["tipo_resultado"] == "recuperada_ocr"], outdir / "detalle_recuperacion_ocr.csv", doc_to_file_num)
+        write_csv(detail_recovered[detail_recovered["tipo_resultado"] == "no_encontrada"], outdir / "entidades_no_encontradas_post_recuperacion.csv", doc_to_file_num)
 
     write_csv(detail, outdir / "detalle_comparaciones.csv", doc_to_file_num)
     write_csv(metrics_model, outdir / "metricas_por_modelo.csv", doc_to_file_num)
+    write_csv(metrics_model_optional, outdir / "metricas_por_modelo_opcionales.csv", doc_to_file_num)
+    write_csv(metrics_model_total, outdir / "metricas_por_modelo_total.csv", doc_to_file_num)
     write_csv(metrics_label, outdir / "metricas_por_etiqueta.csv", doc_to_file_num)
     write_csv(metrics_label_all, outdir / "metricas_por_etiqueta_todas.csv", doc_to_file_num)
     write_csv(metrics_optional, outdir / "metricas_etiquetas_opcionales.csv", doc_to_file_num)
@@ -242,6 +281,7 @@ def evaluate(args: argparse.Namespace) -> tuple[Path, Path, list[Path]]:
     write_csv(diagnostic_summary_principal, outdir / "resumen_detecciones_diagnosticas_principal.csv", doc_to_file_num)
     write_csv(diagnostic_summary_optional, outdir / "resumen_detecciones_diagnosticas_opcional.csv", doc_to_file_num)
     write_csv(diagnostic_summary_total, outdir / "resumen_detecciones_diagnosticas_total.csv", doc_to_file_num)
+    write_csv(wide_model_summary, outdir / "resumen_amplio_por_modelo.csv", doc_to_file_num)
     write_csv(diagnostic_invariants_df, outdir / "auditoria_invariantes_diagnosticas.csv", doc_to_file_num)
     for filename, df in diagnostic_reports(diagnostic_detail).items():
         write_csv(df, outdir / filename, doc_to_file_num)
@@ -255,6 +295,9 @@ def evaluate(args: argparse.Namespace) -> tuple[Path, Path, list[Path]]:
         "modelos": [infer_model_name(path) for path in result_paths],
         "rapidfuzz_threshold": threshold,
         "length_tolerance": length_tolerance,
+        "min_span_overlap_ratio": match_cfg.min_span_overlap_ratio,
+        "tier5_token_set_threshold": match_cfg.tier5_token_set_threshold,
+        "tier5_partial_ratio_threshold": match_cfg.tier5_partial_ratio_threshold,
         "diagnostic_detection": config.get("diagnostic_detection", {}),
         "outputs": str(outdir),
         "graficos": str(graph_dir),
@@ -274,7 +317,10 @@ def evaluate(args: argparse.Namespace) -> tuple[Path, Path, list[Path]]:
     write_dashboard(
         outdir / "dashboard.html",
         metrics_model,
+        metrics_model_optional,
+        metrics_model_total,
         metrics_label_all,
+        wide_model_summary,
         detail,
         relative_graphs,
         gold_audit,
@@ -284,12 +330,17 @@ def evaluate(args: argparse.Namespace) -> tuple[Path, Path, list[Path]]:
             "total": diagnostic_summary_total,
         },
         diagnostic_detail,
+        metrics_recovery,
+        metrics_recovery_isolated,
     )
     pdf_ok, pdf_message = write_dashboard_pdf(
         outdir / "dashboard.pdf",
         metadata,
         metrics_model,
+        metrics_model_optional,
+        metrics_model_total,
         metrics_label_all,
+        wide_model_summary,
         detail,
         graphs,
         gold_audit,
@@ -299,6 +350,8 @@ def evaluate(args: argparse.Namespace) -> tuple[Path, Path, list[Path]]:
             "total": diagnostic_summary_total,
         },
         diagnostic_detail,
+        metrics_recovery,
+        metrics_recovery_isolated,
     )
     if pdf_ok:
         verify_ok, verify_message = verify_dashboard_pdf(outdir / "dashboard.pdf")
