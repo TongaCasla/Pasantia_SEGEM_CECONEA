@@ -1,0 +1,44 @@
+===============================================================================
+REGISTRO DE CAMBIOS (CHANGELOG) - MÉTRICAS FINALES
+===============================================================================
+
+[2026-08-19] - Aplicación de Correcciones de Evaluación y Formato
+
+1. Reducción y Limpieza de Nombres de Modelos:
+   - Implementación de la función `limpiar_nombre_modelo()` para remover el
+     sufijo de timespan (estampa de tiempo posterior al último '_') de los
+     nombres de archivo de modelos en `extraccion_modelos/`.
+   - Uso de los nombres de modelos reducidos/limpios en las tablas de los
+     reportes (PDF y Markdown), archivos de salida y etiquetas de los gráficos.
+
+2. Enriquecimiento de Datos en CSVs de Salida:
+   - Inclusión de los campos `numero_archivo`, `span_inicio` y `span_fin` (o sus
+     variantes `ref_span_inicio`, `ref_span_fin`, `mod_span_inicio`, `mod_span_fin`,
+     `reg_span_inicio`, `reg_span_fin`) en todas las tablas de salida:
+     * `detectadas_persona_<modelo>.csv`
+     * `extras_persona_<modelo>.csv`
+     * `no_detectadas_persona_<modelo>.csv`
+     * `detectadas_numericas_regex.csv`
+     * `extras_numericas_regex.csv`
+     * `no_detectadas_numericas_regex.csv`
+
+3. Reestructuración de Histogramas y Gráficos:
+   - `histograma_persona.png`:
+     * Transformación a gráfico de barras horizontales.
+     * Eje Vertical (Y): Modelos GLiNER con nombres reducidos.
+     * Eje Horizontal (X): Cantidad de personas detectadas.
+     * Límite máximo del Eje X: Fijado en la cantidad total de personas únicas
+       en la base de datos de referencia ground truth (`total_bd`).
+     * Línea guía visual con el total de personas en la BD.
+   - `histograma_numericas.png`:
+     * Transformación a gráfico de barras horizontales.
+     * Eje Vertical (Y): Etiquetas numéricas (DNI, CUIT_CUIL).
+     * Eje Horizontal (X): Porcentaje (%) de entidades detectadas respecto al total
+       de cada etiqueta en la BD supervisada.
+
+4. Inclusión de Parámetros de Ejecución en Reportes:
+   - Adición de bloque informativo en los reportes PDF y Markdown detallando los
+     parámetros empleados en la corrida (`umbral`, `tolerancia_len`, `scorer`,
+     `score_cutoff`, `separador` y archivo de referencia).
+
+===============================================================================
