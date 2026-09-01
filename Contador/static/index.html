@@ -620,6 +620,40 @@
                     </div>
                 </div>
 
+                <!-- Mapeo de Columnas del CSV -->
+                <div id="csv-mapping-wrapper" style="display: none; margin-bottom: 1rem; background: rgba(255, 255, 255, 0.03); padding: 1rem; border-radius: 0.75rem; border: 1px solid rgba(255, 255, 255, 0.08);">
+                    <div style="font-size: 0.9rem; font-weight: 600; color: #a78bfa; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.4rem;">
+                        <span>⚙️ Mapeo de Columnas CSV</span>
+                        <span style="font-size: 0.75rem; font-weight: normal; color: #9ca3af;">(Detectado Automáticamente / Modificable)</span>
+                    </div>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 0.75rem;">
+                        <div>
+                            <label style="font-size: 0.75rem; color: #9ca3af; display: block; margin-bottom: 0.25rem;">ID Documento:</label>
+                            <select id="map-col-id" style="width: 100%; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.15); color: #fff; padding: 0.35rem 0.5rem; border-radius: 0.4rem; font-size: 0.8rem; outline: none; cursor: pointer;"></select>
+                        </div>
+                        <div>
+                            <label style="font-size: 0.75rem; color: #9ca3af; display: block; margin-bottom: 0.25rem;">Texto:</label>
+                            <select id="map-col-text" style="width: 100%; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.15); color: #fff; padding: 0.35rem 0.5rem; border-radius: 0.4rem; font-size: 0.8rem; outline: none; cursor: pointer;"></select>
+                        </div>
+                        <div>
+                            <label style="font-size: 0.75rem; color: #9ca3af; display: block; margin-bottom: 0.25rem;">Etiqueta (Label):</label>
+                            <select id="map-col-lbl" style="width: 100%; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.15); color: #fff; padding: 0.35rem 0.5rem; border-radius: 0.4rem; font-size: 0.8rem; outline: none; cursor: pointer;"></select>
+                        </div>
+                        <div>
+                            <label style="font-size: 0.75rem; color: #9ca3af; display: block; margin-bottom: 0.25rem;">Valor Span:</label>
+                            <select id="map-col-val" style="width: 100%; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.15); color: #fff; padding: 0.35rem 0.5rem; border-radius: 0.4rem; font-size: 0.8rem; outline: none; cursor: pointer;"></select>
+                        </div>
+                        <div>
+                            <label style="font-size: 0.75rem; color: #9ca3af; display: block; margin-bottom: 0.25rem;">Posición Inicio:</label>
+                            <select id="map-col-start" style="width: 100%; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.15); color: #fff; padding: 0.35rem 0.5rem; border-radius: 0.4rem; font-size: 0.8rem; outline: none; cursor: pointer;"></select>
+                        </div>
+                        <div>
+                            <label style="font-size: 0.75rem; color: #9ca3af; display: block; margin-bottom: 0.25rem;">Posición Fin:</label>
+                            <select id="map-col-end" style="width: 100%; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.15); color: #fff; padding: 0.35rem 0.5rem; border-radius: 0.4rem; font-size: 0.8rem; outline: none; cursor: pointer;"></select>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Banner de Errores CSV -->
                 <div id="csv-error-box" style="display: none; margin-bottom: 1rem; padding: 0.85rem 1.1rem; background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.35); border-radius: 0.75rem; color: #fca5a5; font-size: 0.88rem;">
                 </div>
@@ -781,6 +815,7 @@
 
         let debounceTimer;
         let currentDocumentRawText = "";
+        let isPopulatingMappings = false;
 
         // Medir ancho exacto de scrollbar para Tab 1
         function syncTab1Scrollbar() {
@@ -1010,12 +1045,27 @@
                 textDisplay2.innerHTML = '<span style="color: #6b7280; font-style: italic;">Pegá un CSV arriba o arrastrá un archivo para visualizar sus documentos y spans...</span>';
                 currentDocumentRawText = "";
                 docSelectorWrapper.style.display = 'none';
+                document.getElementById('csv-mapping-wrapper').style.display = 'none';
                 legendBox.style.display = 'none';
                 csvSpansWrapper.style.display = 'none';
                 csvUnfoundWrapper.style.display = 'none';
                 csvErrorBox.style.display = 'none';
                 if (spanBox2) spanBox2.style.display = 'none';
                 return;
+            }
+
+            // Obtener mapeo de columnas si el contenedor está visible y tiene opciones cargadas
+            let column_mappings = null;
+            const mappingWrapper = document.getElementById('csv-mapping-wrapper');
+            if (mappingWrapper.style.display === 'block' && document.getElementById('map-col-id').value) {
+                column_mappings = {
+                    id_col: document.getElementById('map-col-id').value,
+                    text_col: document.getElementById('map-col-text').value,
+                    lbl_col: document.getElementById('map-col-lbl').value,
+                    val_col: document.getElementById('map-col-val').value,
+                    start_col: document.getElementById('map-col-start').value,
+                    end_col: document.getElementById('map-col-end').value
+                };
             }
 
             try {
@@ -1026,7 +1076,8 @@
                         csv_text,
                         selected_doc_id,
                         unescape_csv,
-                        search_query
+                        search_query,
+                        column_mappings
                     })
                 });
 
@@ -1044,6 +1095,39 @@
                     csvErrorBox.innerHTML = `⚠️ ${errors.map(e => escapeHTML(e)).join('<br>')}`;
                 } else {
                     csvErrorBox.style.display = 'none';
+                }
+
+                // Actualizar mapeo de columnas en la UI si hay cabeceras devueltas
+                if (data.headers && data.headers.length > 0) {
+                    mappingWrapper.style.display = 'block';
+                    const headers = data.headers;
+                    const mappings = data.mappings || {};
+                    
+                    const selectIds = {
+                        'map-col-id': mappings.id_col,
+                        'map-col-text': mappings.text_col,
+                        'map-col-lbl': mappings.lbl_col,
+                        'map-col-val': mappings.val_col,
+                        'map-col-start': mappings.start_col,
+                        'map-col-end': mappings.end_col
+                    };
+
+                    isPopulatingMappings = true;
+
+                    for (const [selectId, selectedVal] of Object.entries(selectIds)) {
+                        const selectEl = document.getElementById(selectId);
+                        const currentSelection = selectEl.value || selectedVal;
+
+                        selectEl.innerHTML = headers.map(h => `
+                            <option value="${escapeHTML(h)}" ${h === currentSelection ? 'selected' : ''}>
+                                ${escapeHTML(h)}
+                            </option>
+                        `).join('');
+                    }
+
+                    isPopulatingMappings = false;
+                } else {
+                    mappingWrapper.style.display = 'none';
                 }
 
                 // Actualizar desplegable de documentos
@@ -1202,6 +1286,7 @@
         // Event Listeners Tab 2
         csvTextInput.addEventListener('input', () => {
             clearTimeout(debounceTimer);
+            document.getElementById('csv-mapping-wrapper').style.display = 'none';
             debounceTimer = setTimeout(() => updateCsvSpans(), 150);
         });
 
@@ -1211,6 +1296,7 @@
             if (file) {
                 const reader = new FileReader();
                 reader.onload = (event) => {
+                    document.getElementById('csv-mapping-wrapper').style.display = 'none';
                     csvTextInput.value = event.target.result;
                     updateCsvSpans();
                 };
@@ -1234,11 +1320,24 @@
             if (file) {
                 const reader = new FileReader();
                 reader.onload = (event) => {
+                    document.getElementById('csv-mapping-wrapper').style.display = 'none';
                     csvTextInput.value = event.target.result;
                     updateCsvSpans();
                 };
                 reader.readAsText(file);
             }
+        });
+
+        // Event Listeners para selectores de mapeo de columnas
+        const mappingSelects = [
+            'map-col-id', 'map-col-text', 'map-col-lbl', 'map-col-val', 'map-col-start', 'map-col-end'
+        ];
+        mappingSelects.forEach(selectId => {
+            document.getElementById(selectId).addEventListener('change', () => {
+                if (!isPopulatingMappings) {
+                    updateCsvSpans();
+                }
+            });
         });
 
         window.addEventListener('resize', syncTab1Scrollbar);

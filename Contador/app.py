@@ -1,8 +1,21 @@
 from flask import Flask, request, jsonify, send_from_directory
 import os
 import unicodedata
+import argparse
+
+# Configurar argumentos de línea de comandos
+parser = argparse.ArgumentParser(description="Servidor Flask para Contador y Visualizador de Spans")
+parser.add_argument(
+    "-c", "--columna",
+    default=None,
+    help="Nombre de la columna del CSV que contiene el texto (si no se especifica, se buscará automáticamente)"
+)
+# Usar parse_known_args para evitar conflictos con argumentos internos de Flask/reloader
+args, unknown = parser.parse_known_args()
 
 app = Flask(__name__, static_folder="static")
+app.config['TEXT_COLUMN'] = args.columna
+
 
 
 def remove_accents(text):
@@ -163,6 +176,19 @@ def parse_csv():
 
         headers = [h.strip().lstrip('\ufeff').lower() for h in headers_raw]
 
+        # Definir una función auxiliar para resolver el índice de una columna por nombre (case-insensitive)
+        def get_col_index_by_name(col_name, fallback_idx):
+            if not col_name:
+                return fallback_idx
+            name_lower = col_name.strip().lower()
+            for i, h in enumerate(headers):
+                if h.strip().lower() == name_lower:
+                    return i
+            for i, h in enumerate(headers):
+                if name_lower in h.strip().lower():
+                    return i
+            return fallback_idx
+
         # Identificar columnas con máxima flexibilidad
         def find_col_idx(patterns, default_idx):
             for i, h in enumerate(headers):
@@ -171,12 +197,32 @@ def parse_csv():
                         return i
             return default_idx if default_idx < len(headers) else None
 
-        id_idx = find_col_idx(['id', 'doc'], 0)
-        text_idx = find_col_idx(['texto_limpio', 'clean_text', 'texto', 'text'], 1)
-        lbl_idx = find_col_idx(['etiqueta', 'label', 'tag', 'entity'], 2)
-        val_idx = find_col_idx(['valor', 'value', 'val'], 3)
-        start_idx = find_col_idx(['span_inicio', 'spawn_inicio', 'start', 'inicio'], 4)
-        end_idx = find_col_idx(['span_fin', 'spawn_fin', 'end', 'fin'], 5)
+        column_mappings = data.get("column_mappings", {})
+
+        if column_mappings:
+            id_idx = get_col_index_by_name(column_mappings.get("id_col"), 0)
+            text_idx = get_col_index_by_name(column_mappings.get("text_col"), 1)
+            lbl_idx = get_col_index_by_name(column_mappings.get("lbl_col"), 2)
+            val_idx = get_col_index_by_name(column_mappings.get("val_col"), 3)
+            start_idx = get_col_index_by_name(column_mappings.get("start_col"), 4)
+            end_idx = get_col_index_by_name(column_mappings.get("end_col"), 5)
+        else:
+            id_idx = find_col_idx(['id', 'doc'], 0)
+            
+            # Usar la columna parametrizada por CLI si se especificó
+            text_column_cli = app.config.get('TEXT_COLUMN')
+            text_idx = None
+            if text_column_cli:
+                text_idx = get_col_index_by_name(text_column_cli, None)
+
+            # Si no se especificó o no se encontró, usar la detección flexible predeterminada
+            if text_idx is None:
+                text_idx = find_col_idx(['texto_limpio', 'clean_text', 'texto', 'text', 'fragmento', 'contexto', 'context'], 1)
+
+            lbl_idx = find_col_idx(['etiqueta', 'label', 'tag', 'entity', 'palabra_clave', 'keyword'], 2)
+            val_idx = find_col_idx(['valor', 'value', 'val', 'palabra_clave', 'keyword'], 3)
+            start_idx = find_col_idx(['span_inicio', 'spawn_inicio', 'start', 'inicio', 'posicion_inicio'], 4)
+            end_idx = find_col_idx(['span_fin', 'spawn_fin', 'end', 'fin', 'posicion_fin'], 5)
 
         for row_num, row in enumerate(reader, start=2):
             if not row or (len(row) == 1 and not row[0].strip()):
@@ -196,21 +242,66 @@ def parse_csv():
             if doc_id not in documents_dict:
                 documents_dict[doc_id] = {
                     "id": doc_id,
-                    "texto_limpio": texto_limpio,
-                    "spans": []
+                    "fragments": [],  # Lista de dicts: {"text": ..., "spans": []}
                 }
                 documents_order.append(doc_id)
-            else:
-                if not documents_dict[doc_id]["texto_limpio"] and texto_limpio:
-                    documents_dict[doc_id]["texto_limpio"] = texto_limpio
 
-            documents_dict[doc_id]["spans"].append({
+            # Buscar si ya existe este fragmento en el documento para agrupar
+            found_fragment = None
+            for frag in documents_dict[doc_id]["fragments"]:
+                if frag["text"] == texto_limpio:
+                    found_fragment = frag
+                    break
+
+            if found_fragment is None:
+                found_fragment = {
+                    "text": texto_limpio,
+                    "spans": []
+                }
+                documents_dict[doc_id]["fragments"].append(found_fragment)
+
+            found_fragment["spans"].append({
                 "line_num": row_num,
                 "etiqueta": etiqueta,
                 "valor": valor,
                 "span_inicio": span_inicio,
-                "span_fin": span_fin
+                "span_fin": span_fin,
+                "row": row
             })
+
+        # Consolidar y concatenar los fragmentos de cada documento
+        for doc_id in documents_order:
+            doc_data = documents_dict[doc_id]
+            concatenated_text = ""
+            consolidated_spans = []
+
+            for i, frag in enumerate(doc_data["fragments"]):
+                frag_text = frag["text"]
+                
+                # Agregar separador de dos saltos de línea si no es el primer fragmento
+                if i > 0:
+                    separator = "\n\n"
+                    offset = len(concatenated_text) + len(separator)
+                    concatenated_text += separator
+                else:
+                    offset = 0
+
+                # Ajustar coordenadas agregando el offset acumulado
+                for span in frag["spans"]:
+                    adj_span = span.copy()
+                    if adj_span["span_inicio"] is not None:
+                        adj_span["span_inicio"] += offset
+                    if adj_span["span_fin"] is not None:
+                        adj_span["span_fin"] += offset
+                    # Guardamos el offset y longitud de su segmento para búsquedas de fallback
+                    adj_span["frag_offset"] = offset
+                    adj_span["frag_len"] = len(frag_text)
+                    consolidated_spans.append(adj_span)
+
+                concatenated_text += frag_text
+
+            doc_data["texto_limpio"] = concatenated_text
+            doc_data["spans"] = consolidated_spans
 
     except Exception as e:
         return jsonify({"documents": [], "spans_found": [], "spans_unfound": [], "errors": [f"Error procesando CSV: {str(e)}"], "text_processed": ""})
@@ -251,20 +342,63 @@ def parse_csv():
         valor = s["valor"]
         etiqueta = s["etiqueta"]
 
+        # Función auxiliar para normalizar cadenas para comparación insensible a acentos/mayúsculas
+        def normalize_for_comparison(t):
+            if not t:
+                return ""
+            return remove_accents(t).lower().strip()
+
         # Verificar si las coordenadas son válidas
         valid_range = (inicio is not None and fin is not None and inicio >= 0 and fin > inicio and fin <= len(text_processed))
         real_text = text_processed[inicio:fin] if valid_range else ""
-        match_exact = (real_text == valor) if valid_range else False
+        match_exact = (normalize_for_comparison(real_text) == normalize_for_comparison(valor)) if valid_range else False
 
-        # Si no hay coincidencia exacta pero existe un valor, intentar corregir pequeños desfases (ej: 1 o 2 caracteres por comillas o normalizaciones)
+        # 1. Fallback: Restar un posible offset si la fila tiene alguna columna de offset/inicio_fragmento
+        if not match_exact and valor and text_processed and (inicio is not None and fin is not None):
+            row_data = s.get("row", [])
+            for col_idx, col_name in enumerate(headers):
+                if 'inicio_fragmento' in col_name or 'offset' in col_name or 'start_fragment' in col_name:
+                    if col_idx < len(row_data):
+                        offset_str = row_data[col_idx].strip()
+                        if offset_str.isdigit():
+                            offset_val = int(offset_str)
+                            adj_inicio = inicio - offset_val
+                            adj_fin = fin - offset_val
+                            adj_valid = (adj_inicio >= 0 and adj_fin > adj_inicio and adj_fin <= len(text_processed))
+                            adj_real = text_processed[adj_inicio:adj_fin] if adj_valid else ""
+                            if normalize_for_comparison(adj_real) == normalize_for_comparison(valor):
+                                inicio = adj_inicio
+                                fin = adj_fin
+                                real_text = adj_real
+                                match_exact = True
+                                valid_range = True
+                                break
+
+        # 2. Fallback: Búsqueda del valor dentro del segmento del fragmento sin importar acentos ni mayúsculas
+        if not match_exact and valor and text_processed:
+            frag_offset = s.get("frag_offset", 0)
+            frag_len = s.get("frag_len", len(text_processed))
+            frag_text_segment = text_processed[frag_offset : frag_offset + frag_len]
+            
+            matches = search_with_exact_offsets(frag_text_segment, valor)
+            if matches:
+                best_match = matches[0]
+                inicio = frag_offset + best_match["start"]
+                fin = frag_offset + best_match["end"]
+                real_text = text_processed[inicio:fin]
+                match_exact = True
+                valid_range = True
+
+        # 3. Fallback: Mismatch de 15 caracteres (como comillas extras) sin importar acentos ni mayúsculas
         if not match_exact and valor and text_processed:
             search_min = max(0, (inicio if inicio is not None else 0) - 15)
             search_max = min(len(text_processed), (fin if fin is not None else 0) + 15)
             sub_text = text_processed[search_min:search_max]
-            adj_idx = sub_text.find(valor)
-            if adj_idx != -1:
-                inicio = search_min + adj_idx
-                fin = inicio + len(valor)
+            matches = search_with_exact_offsets(sub_text, valor)
+            if matches:
+                best_match = matches[0]
+                inicio = search_min + best_match["start"]
+                fin = search_min + best_match["end"]
                 real_text = text_processed[inicio:fin]
                 match_exact = True
                 valid_range = True
@@ -293,6 +427,20 @@ def parse_csv():
     search_query = data.get("search_query", "").strip()
     search_results = search_with_exact_offsets(text_processed, search_query) if search_query else []
 
+    def get_col_name(idx):
+        if idx is not None and idx < len(headers_raw):
+            return headers_raw[idx]
+        return ""
+
+    mappings_used = {
+        "id_col": get_col_name(id_idx),
+        "text_col": get_col_name(text_idx),
+        "lbl_col": get_col_name(lbl_idx),
+        "val_col": get_col_name(val_idx),
+        "start_col": get_col_name(start_idx),
+        "end_col": get_col_name(end_idx),
+    }
+
     return jsonify({
         "selected_doc_id": active_doc_id,
         "documents": doc_list,
@@ -300,9 +448,15 @@ def parse_csv():
         "spans_unfound": spans_unfound,
         "search_results": search_results,
         "errors": errors,
-        "text_processed": text_processed
+        "text_processed": text_processed,
+        "headers": headers_raw,
+        "mappings": mappings_used
     })
 
 
 if __name__ == "__main__":
+    if app.config.get('TEXT_COLUMN'):
+        print(f"[*] Configurado por CLI el campo de texto CSV: '{app.config['TEXT_COLUMN']}'")
+    else:
+        print("[*] Usando detección automática para el campo de texto CSV (texto_limpio, clean_text, etc.)")
     app.run(debug=True, port=5000)

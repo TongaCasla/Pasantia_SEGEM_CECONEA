@@ -64,6 +64,18 @@ Para iniciar el servidor de desarrollo, ejecuta:
 python app.py
 ```
 
+### ⚙️ Parámetros CLI
+
+Puedes parametrizar el campo del CSV que contiene el texto usando:
+
+```bash
+python app.py -c nombre_de_la_columna
+# o también:
+python app.py --columna nombre_de_la_columna
+```
+
+Si no se especifica, el sistema seguirá detectando automáticamente las columnas usuales (`texto_limpio`, `clean_text`, `texto`, `text`).
+
 Luego abre tu navegador e ingresa a:
 
 👉 **[http://127.0.0.1:5000](http://127.0.0.1:5000)**
