@@ -1,0 +1,37 @@
+# ===========================================================================
+# Configuración del Pipeline DSPy para Extracción de Embargos Judiciales
+# ===========================================================================
+
+llm:
+  api_base: "http://localhost:1234/v1"
+  model: "openai/local-model"
+  temperature: 0.0
+  max_tokens: 1500
+  api_key: "local"
+
+datos:
+  bd_supervisada: "bd_supervisada_embargos_actualizada.csv"
+  frag_con_texto: "frag_con_texto.csv"
+  campo_entrenamiento: "contexto"
+  campo_produccion: "texto_completo"
+  split:
+    train: 0.60
+    val: 0.20
+    test: 0.20
+    seed: 42
+    priorizar_multiples: true
+
+optimizador:
+  metodo: "BootstrapFewShot"  # Opciones: "BootstrapFewShot", "MIPROv2"
+  max_bootstrapped_demos: 4
+  max_labeled_demos: 4
+  max_rounds: 1
+
+extraccion:
+  cot: false
+  max_chars: 12000
+  max_reintentos: 2
+
+rutas:
+  programa_compilado: "programas/embargo_optimizado.json"
+  output_default: "output/extraccion_embargos.csv"
