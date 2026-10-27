@@ -1,0 +1,5 @@
+--Datos_Embargado--
+dni
+cuil
+cuit
+doc

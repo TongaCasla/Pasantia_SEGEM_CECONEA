@@ -1,0 +1,39 @@
+--Datos_Embargado--
+dni
+cuil
+cuit
+doc
+
+---Montos--
+hasta cubrir la suma
+hasta cubrir las sumas
+retencion
+cubrir la suma
+por la suma
+por las sumas
+hasta cubrir
+hasta alcanzar la suma
+retener la suma
+
+--Cuenta_depositar--
+transferir dichos fondos
+remita el saldo
+remitase los saldos
+remita el fondo
+remitase los fondos
+transferencia de las sumas
+cuenta judicial
+depositarse en la cuenta
+deberán ser depositadas
+depositada en la cuenta
+deberán ser transferidos
+serán depositadas
+judiciales pesos
+deberán ser transferidas
+debiendo depositarse los fondos
+deberán depositarse
+deberán ser depositados
+depositar lo retenido
+depositar los fondos embargados
+cuenta bancaria
+cuit poder judicial
